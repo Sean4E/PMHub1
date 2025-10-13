@@ -1715,7 +1715,8 @@ End of Report
                 uploadedCount: uploadedFiles.length,
                 task: currentTask ? currentTask.name : 'General',
                 uploaded: !mediaStoredLocally,
-                reportsFolderId: reportsFolderId // Add folder ID to activity for Hub linking
+                reportsFolderId: reportsFolderId, // Add folder ID to activity for Hub linking
+                driveFileId: uploadedFiles.length > 0 ? uploadedFiles[0].driveFileId : null // First file for quick access
             });
 
             await saveHubState();
