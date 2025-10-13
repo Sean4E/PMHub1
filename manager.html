@@ -3110,6 +3110,12 @@
         function renderManagerActivityFeed() {
             if (!hubState.activities) hubState.activities = [];
 
+            console.log('📊 Manager Activity Feed: Starting render');
+            console.log('   - Total activities in hubState:', hubState.activities.length);
+            if (hubState.activities.length > 0) {
+                console.log('   - Sample activity:', hubState.activities[0]);
+            }
+
             // Populate filter dropdowns
             populateManagerActivityFilters();
 
@@ -3118,6 +3124,8 @@
             const typeFilter = document.getElementById('activity-filter-type')?.value || 'all';
             const userFilter = document.getElementById('activity-filter-user')?.value || 'all';
             const projectFilter = document.getElementById('activity-filter-project')?.value || 'all';
+
+            console.log('   - Filters:', { sourceFilter, typeFilter, userFilter, projectFilter });
 
             // Filter activities
             let filtered = hubState.activities.filter(activity => {
@@ -3128,6 +3136,8 @@
                 return true;
             });
 
+            console.log('   - Filtered activities:', filtered.length);
+
             // Sort by newest first
             filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -3136,9 +3146,15 @@
 
             // Render timeline
             const timeline = document.getElementById('activity-timeline');
-            if (!timeline) return;
+            if (!timeline) {
+                console.error('❌ activity-timeline element not found!');
+                return;
+            }
+
+            console.log('   - Timeline element found:', !!timeline);
 
             if (filtered.length === 0) {
+                console.log('⚠️ No activities after filtering - showing empty state');
                 timeline.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">📊</div>
@@ -3148,10 +3164,12 @@
                 return;
             }
 
+            console.log('✅ Rendering', filtered.length, 'activities to timeline');
+
             timeline.innerHTML = filtered.map(activity => {
                 const activityTime = new Date(activity.timestamp);
                 const timeAgo = getRelativeTime(activity.timestamp);
-                const icon = getActivityIcon(activity.type);
+                const icon = getNotificationIcon(activity.type);
                 const color = getManagerActivityColor(activity.type);
 
                 // Source badge
