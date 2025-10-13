@@ -3287,7 +3287,9 @@
                 client_id: CLIENT_ID,
                 scope: SCOPES,
                 callback: '',
-                prompt: '' // Empty prompt for silent refresh
+                prompt: '', // Empty prompt for silent refresh
+                ux_mode: 'redirect', // Use redirect instead of popup for GitHub Pages
+                redirect_uri: window.location.origin + window.location.pathname
             });
             gisInited = true;
             console.log('✓ GIS (Token Client) initialized');
