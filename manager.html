@@ -832,6 +832,174 @@
             margin-bottom: 16px;
             opacity: 0.5;
         }
+
+        /* ===== ACTIVITY LOG STYLES ===== */
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .activity-filters {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .activity-filter-select {
+            padding: 8px 12px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .activity-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .activity-stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .activity-stat-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .activity-stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .activity-timeline {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            margin-bottom: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .activity-item:hover {
+            transform: translateX(4px);
+        }
+
+        .activity-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .activity-item-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .activity-icon {
+            font-size: 24px;
+        }
+
+        .activity-user {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .activity-message {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .activity-source-badge {
+            background: var(--glass-bg);
+            color: var(--text-tertiary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .activity-source-badge.worker {
+            background: var(--accent-success);
+            color: white;
+        }
+
+        .activity-time {
+            text-align: right;
+        }
+
+        .activity-time-ago {
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        .activity-timestamp {
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        .activity-project {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-left: 36px;
+        }
+
+        .activity-details {
+            margin-left: 36px;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1002,6 +1170,15 @@
                         </svg>
                     </div>
                     <div class="management-title">Users</div>
+                </div>
+
+                <div class="management-card" onclick="showActivityLog()">
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="management-title">Activity Log</div>
                 </div>
             </div>
 
@@ -1373,6 +1550,9 @@
                             showManageTools();
                         } else if (currentManagementView === 'users') {
                             showManageUsers();
+                        } else if (currentManagementView === 'activity') {
+                            renderManagerActivityFeed();
+                            console.log('📊 Manager: Activity log refreshed via BroadcastChannel');
                         }
 
                         // If chat modal is open, refresh messages
@@ -2849,6 +3029,276 @@
             }
         });
 
+        // ===== ACTIVITY LOG FUNCTIONS =====
+        function showActivityLog() {
+            currentManagementView = 'activity';
+            renderActivityLogUI();
+        }
+
+        function renderActivityLogUI() {
+            if (!hubState.activities) hubState.activities = [];
+
+            let html = `
+                <div class="section-header">Activity Log</div>
+
+                <!-- Activity Filters -->
+                <div class="activity-header">
+                    <div class="activity-filters">
+                        <select id="activity-filter-source" onchange="renderManagerActivityFeed()" class="activity-filter-select">
+                            <option value="all">All Sources</option>
+                            <option value="worker">📱 Worker</option>
+                            <option value="manager">⚙️ Manager</option>
+                            <option value="hub">🖥️ Hub</option>
+                        </select>
+                        <select id="activity-filter-type" onchange="renderManagerActivityFeed()" class="activity-filter-select">
+                            <option value="all">All Activities</option>
+                            <option value="CLOCK_IN">Clock In/Out</option>
+                            <option value="TASK_START">Task Start</option>
+                            <option value="TASK_COMPLETE">Task Complete</option>
+                            <option value="AREA_COMPLETE">Area Complete</option>
+                            <option value="TOOL_CHECKOUT">Tool Checkout</option>
+                            <option value="REPORT">Reports</option>
+                            <option value="TASK_MESSAGE">Messages</option>
+                        </select>
+                        <select id="activity-filter-user" onchange="renderManagerActivityFeed()" class="activity-filter-select">
+                            <option value="all">All Users</option>
+                        </select>
+                        <select id="activity-filter-project" onchange="renderManagerActivityFeed()" class="activity-filter-select">
+                            <option value="all">All Projects</option>
+                        </select>
+                        <button class="btn-sm btn-primary" onclick="refreshManagerActivity()" title="Refresh activity feed">🔄 Refresh</button>
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span>Live updates</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Stats -->
+                <div class="activity-stats-grid">
+                    <div class="activity-stat-card">
+                        <div class="activity-stat-label">Total Activities</div>
+                        <div class="activity-stat-value" id="activity-total">0</div>
+                    </div>
+                    <div class="activity-stat-card">
+                        <div class="activity-stat-label">Today</div>
+                        <div class="activity-stat-value" id="activity-today" style="color: var(--accent-primary);">0</div>
+                    </div>
+                    <div class="activity-stat-card">
+                        <div class="activity-stat-label">Tasks Completed</div>
+                        <div class="activity-stat-value" id="activity-tasks-complete" style="color: var(--accent-success);">0</div>
+                    </div>
+                    <div class="activity-stat-card">
+                        <div class="activity-stat-label">Areas Complete</div>
+                        <div class="activity-stat-value" id="activity-areas-complete" style="color: var(--accent-warning);">0</div>
+                    </div>
+                </div>
+
+                <!-- Activity Timeline -->
+                <div id="activity-timeline" class="activity-timeline">
+                    <div class="empty-state">
+                        <div class="empty-icon">📊</div>
+                        <div>No activities yet. Worker actions will appear here.</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('management-content').innerHTML = html;
+            renderManagerActivityFeed();
+        }
+
+        function renderManagerActivityFeed() {
+            if (!hubState.activities) hubState.activities = [];
+
+            // Populate filter dropdowns
+            populateManagerActivityFilters();
+
+            // Get filter values
+            const sourceFilter = document.getElementById('activity-filter-source')?.value || 'all';
+            const typeFilter = document.getElementById('activity-filter-type')?.value || 'all';
+            const userFilter = document.getElementById('activity-filter-user')?.value || 'all';
+            const projectFilter = document.getElementById('activity-filter-project')?.value || 'all';
+
+            // Filter activities
+            let filtered = hubState.activities.filter(activity => {
+                if (sourceFilter !== 'all' && (activity.source || 'hub') !== sourceFilter) return false;
+                if (typeFilter !== 'all' && !activity.type.includes(typeFilter)) return false;
+                if (userFilter !== 'all' && activity.userId != userFilter) return false;
+                if (projectFilter !== 'all' && activity.projectId != projectFilter) return false;
+                return true;
+            });
+
+            // Sort by newest first
+            filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            // Update stats
+            updateManagerActivityStats(filtered);
+
+            // Render timeline
+            const timeline = document.getElementById('activity-timeline');
+            if (!timeline) return;
+
+            if (filtered.length === 0) {
+                timeline.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📊</div>
+                        <div>No activities match the current filters.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            timeline.innerHTML = filtered.map(activity => {
+                const activityTime = new Date(activity.timestamp);
+                const timeAgo = getRelativeTime(activity.timestamp);
+                const icon = getActivityIcon(activity.type);
+                const color = getManagerActivityColor(activity.type);
+
+                // Source badge
+                const source = activity.source || 'hub';
+                let sourceBadge = '';
+                if (source === 'worker') {
+                    sourceBadge = '<span class="activity-source-badge worker">📱 WORKER</span>';
+                } else if (source === 'manager') {
+                    sourceBadge = '<span class="activity-source-badge">⚙️ MANAGER</span>';
+                } else {
+                    sourceBadge = '<span class="activity-source-badge">🖥️ HUB</span>';
+                }
+
+                return `
+                    <div class="activity-item" style="border-left: 4px solid ${color};">
+                        <div class="activity-item-header">
+                            <div class="activity-item-content">
+                                <span class="activity-icon">${icon}</span>
+                                <div>
+                                    <div>
+                                        <span class="activity-user">${activity.userName || 'Unknown User'}</span>
+                                        ${sourceBadge}
+                                    </div>
+                                    <div class="activity-message">${activity.message}</div>
+                                </div>
+                            </div>
+                            <div class="activity-time">
+                                <div class="activity-time-ago">${timeAgo}</div>
+                                <div class="activity-timestamp">${activityTime.toLocaleTimeString()}</div>
+                            </div>
+                        </div>
+                        ${activity.projectName ? `<div class="activity-project">📁 ${activity.projectName}</div>` : ''}
+                        ${activity.details && Object.keys(activity.details).length > 0 ? renderManagerActivityDetails(activity.details) : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function populateManagerActivityFilters() {
+            // Populate user filter
+            const userFilter = document.getElementById('activity-filter-user');
+            if (!userFilter) return;
+
+            const users = new Set();
+            (hubState.activities || []).forEach(a => {
+                if (a.userId) users.add(JSON.stringify({ id: a.userId, name: a.userName }));
+            });
+
+            const currentUserValue = userFilter.value;
+            userFilter.innerHTML = '<option value="all">All Users</option>';
+            [...users].map(u => JSON.parse(u)).forEach(user => {
+                userFilter.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+            });
+            userFilter.value = currentUserValue;
+
+            // Populate project filter
+            const projectFilter = document.getElementById('activity-filter-project');
+            if (!projectFilter) return;
+
+            const currentProjectValue = projectFilter.value;
+            projectFilter.innerHTML = '<option value="all">All Projects</option>';
+            (hubState.projects || []).forEach(project => {
+                projectFilter.innerHTML += `<option value="${project.id}">${project.name}</option>`;
+            });
+            projectFilter.value = currentProjectValue;
+        }
+
+        function updateManagerActivityStats(filtered) {
+            const total = (hubState.activities || []).length;
+            const today = filtered.filter(a => {
+                const activityDate = new Date(a.timestamp).toDateString();
+                const todayDate = new Date().toDateString();
+                return activityDate === todayDate;
+            }).length;
+            const tasksComplete = (hubState.activities || []).filter(a => a.type === 'TASK_COMPLETE').length;
+            const areasComplete = (hubState.activities || []).filter(a => a.type === 'AREA_COMPLETE').length;
+
+            const totalEl = document.getElementById('activity-total');
+            const todayEl = document.getElementById('activity-today');
+            const tasksEl = document.getElementById('activity-tasks-complete');
+            const areasEl = document.getElementById('activity-areas-complete');
+
+            if (totalEl) totalEl.textContent = total;
+            if (todayEl) todayEl.textContent = today;
+            if (tasksEl) tasksEl.textContent = tasksComplete;
+            if (areasEl) areasEl.textContent = areasComplete;
+        }
+
+        function renderManagerActivityDetails(details) {
+            let html = '<div class="activity-details">';
+            if (details.billable !== undefined) {
+                html += `<div style="color: ${details.billable ? 'var(--accent-success)' : 'var(--text-tertiary)'};">
+                    ${details.billable ? '💰 Billable' : '📝 Non-billable'}
+                </div>`;
+            }
+            if (details.hours) {
+                html += `<div style="color: var(--text-secondary);">⏱️ ${details.hours} hours</div>`;
+            }
+            if (details.requiresInvoice) {
+                html += `<div style="color: var(--accent-warning); font-weight: 600;">🔔 Ready to Invoice</div>`;
+            }
+            if (details.areaName) {
+                html += `<div style="color: var(--text-secondary);">📂 ${details.areaName}</div>`;
+            }
+            if (details.taskName) {
+                html += `<div style="color: var(--text-secondary);">✓ ${details.taskName}</div>`;
+            }
+            if (details.mediaCount) {
+                html += `<div style="color: var(--text-secondary);">📸 ${details.uploadedCount || details.mediaCount}/${details.mediaCount} files uploaded</div>`;
+            }
+            if (details.reportsFolderId) {
+                html += `<div style="margin-top: 8px;">
+                    <a href="https://drive.google.com/drive/folders/${details.reportsFolderId}"
+                       target="_blank"
+                       style="color: var(--accent-primary); text-decoration: none; font-size: 12px;"
+                       onclick="event.stopPropagation()">
+                        📁 View Reports Folder →
+                    </a>
+                </div>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function getManagerActivityColor(type) {
+            const colors = {
+                'CLOCK_IN': 'var(--accent-success)',
+                'CLOCK_OUT': 'var(--accent-danger)',
+                'TASK_START': 'var(--accent-primary)',
+                'TASK_COMPLETE': 'var(--accent-success)',
+                'TASK_MESSAGE': 'var(--accent-secondary)',
+                'AREA_COMPLETE': 'var(--accent-warning)',
+                'TOOL_CHECKOUT': 'var(--accent-primary)',
+                'TOOL_CHECKIN': 'var(--accent-success)',
+                'REPORT': 'var(--accent-secondary)',
+                'INVOICE_CREATE': 'var(--accent-warning)'
+            };
+            return colors[type] || 'var(--glass-border)';
+        }
+
+        function refreshManagerActivity() {
+            if (currentManagementView === 'activity') {
+                renderManagerActivityFeed();
+                showToast('Activity log refreshed', 'success');
+            }
+        }
+
         // Initialize on load
         window.addEventListener('DOMContentLoaded', init);
     </script>
@@ -2879,6 +3329,12 @@
                                 managementProject = hubState.projects?.find(p => p.id == managementProject.id);
                                 // Refresh the current management view if it's open
                                 loadManagementProject();
+
+                                // If activity log is open, refresh it (Firebase realtime sync)
+                                if (currentManagementView === 'activity') {
+                                    renderManagerActivityFeed();
+                                    console.log('📊 Manager: Activity log refreshed via Firebase sync');
+                                }
 
                                 // If chat modal is open, refresh messages (Firebase realtime sync)
                                 if (currentChatTask) {
