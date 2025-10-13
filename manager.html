@@ -924,10 +924,13 @@
         // BroadcastChannel for instant state sync with hub
         const stateChannel = new BroadcastChannel('pm_hub_state');
 
+        // Track which management view is currently active
+        let currentManagementView = null; // 'tasks', 'areas', 'tools', 'users', or null
+
         // Listen for state updates from hub
         stateChannel.onmessage = function(event) {
             if (event.data.type === 'STATE_UPDATED') {
-                console.log('📡 Manager: State update received');
+                console.log('📡 Manager: State update received from', event.data.source);
                 loadHubState();
 
                 // Refresh current view
@@ -936,10 +939,21 @@
                     if (selectedProject) {
                         selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
                     }
-                } else {
+                } else if (currentMode === 'manage') {
                     // Refresh management view if needed
                     if (managementProject) {
-                        loadManagementProject();
+                        managementProject = hubState.projects?.find(p => p.id == managementProject.id);
+
+                        // Refresh the currently active management view
+                        if (currentManagementView === 'tasks') {
+                            showManageTasks();
+                        } else if (currentManagementView === 'areas') {
+                            showManageAreas();
+                        } else if (currentManagementView === 'tools') {
+                            showManageTools();
+                        } else if (currentManagementView === 'users') {
+                            showManageUsers();
+                        }
                     }
                 }
             }
@@ -1397,6 +1411,7 @@
                 return;
             }
 
+            currentManagementView = 'areas';
             const areas = managementProject.areas || [];
             let html = `
                 <div class="section-header">Areas for ${managementProject.name}</div>
@@ -1476,6 +1491,8 @@
                 return;
             }
 
+            currentManagementView = 'tasks';
+
             // Populate area selector in add task modal
             const areaSelect = document.getElementById('task-area-select');
             areaSelect.innerHTML = '<option value="">-- Choose Area --</option>';
@@ -1491,7 +1508,7 @@
 
             const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
             allUsers.forEach(user => {
-                assigneeSelect.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+                assigneeSelect.innerHTML += `<option value="${user.name}">${user.name}</option>`;
             });
 
             let html = `
@@ -1517,12 +1534,8 @@
                     const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
                     const statusBadge = task.completed ? '✅ Done' : task.status === 'progress' ? '🔄 In Progress' : '⏳ Pending';
 
-                    // Fix assignee lookup with proper type handling
-                    let assigneeName = 'Unassigned';
-                    if (task.assignee) {
-                        const assignedUser = allUsers.find(u => String(u.id) === String(task.assignee));
-                        assigneeName = assignedUser ? assignedUser.name : 'Unassigned';
-                    }
+                    // Display assignee directly (now stored as name, matching hub format)
+                    const assigneeName = task.assignee || 'Unassigned';
 
                     html += `
                         <div class="list-item">
@@ -1602,6 +1615,7 @@
 
         // ===== MANAGE TOOLS =====
         function showManageTools() {
+            currentManagementView = 'tools';
             let html = `
                 <div class="section-header">Tools Management</div>
                 <button class="big-btn primary" onclick="openModal('add-tool-modal')">
@@ -1678,6 +1692,7 @@
 
         // ===== MANAGE USERS =====
         function showManageUsers() {
+            currentManagementView = 'users';
             let html = `
                 <div class="section-header">Users Management</div>
                 <button class="big-btn primary" onclick="openModal('add-user-modal')">
@@ -1776,14 +1791,14 @@
             document.getElementById('edit-task-name').value = task.name;
             document.getElementById('edit-task-priority').value = task.priority;
 
-            // Populate assignee selector
+            // Populate assignee selector with names (matching hub format)
             const assigneeSelect = document.getElementById('edit-task-assignee');
             assigneeSelect.innerHTML = '<option value="">-- Select Worker --</option>';
 
             const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
             allUsers.forEach(user => {
-                const selected = String(user.id) === String(task.assignee) ? 'selected' : '';
-                assigneeSelect.innerHTML += `<option value="${user.id}" ${selected}>${user.name}</option>`;
+                const selected = user.name === task.assignee ? 'selected' : '';
+                assigneeSelect.innerHTML += `<option value="${user.name}" ${selected}>${user.name}</option>`;
             });
 
             openModal('edit-task-modal');
