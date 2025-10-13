@@ -474,8 +474,10 @@
                     }
 
                     // Route based on accessLevel
-                    if (user.accessLevel === 'Admin' || user.accessLevel === 'Manager') {
+                    if (user.accessLevel === 'Admin') {
                         window.location.href = 'PM_Hub_CL_v01_024.html';
+                    } else if (user.accessLevel === 'Manager') {
+                        window.location.href = 'manager.html';
                     } else {
                         window.location.href = 'worker.html';
                     }

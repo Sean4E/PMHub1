@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>PM Hub Manager</title>
+    <link rel="stylesheet" href="pm-hub-styles.css">
+
+    <!-- QR Scanner Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+
+    <!-- Google Drive API -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Initialize Firebase (MUST match hub's config exactly)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDnwDzHtjFKaWY-VwIMJtomfunkp7t9GFc",
+            authDomain: "assettracker1-5b976.firebaseapp.com",
+            projectId: "assettracker1-5b976",
+            storageBucket: "assettracker1-5b976.firebasestorage.app",
+            messagingSenderId: "260186083597",
+            appId: "1:260186083597:web:5ec0eb9d5f8a4132022044"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            window.firebaseEnabled = true;
+            window.db = db;
+            window.firestore = { collection, doc, setDoc, getDoc, onSnapshot };
+            console.log('✓ Manager: Firebase initialized');
+        } catch (error) {
+            console.error('Manager: Firebase init error:', error);
+            window.firebaseEnabled = false;
+        }
+    </script>
+
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-dark);
+            overflow-x: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: var(--text-primary);
+        }
+
+        /* Header with Management Toggle */
+        .manager-header {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .manager-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: 12px;
+            margin-top: 12px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        /* Sync Status Indicators */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+        }
+
+        .status-dot.synced {
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-danger);
+            border-radius: 8px;
+            color: var(--accent-danger);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* Clock Out Button - Always visible when clocked in */
+        .clock-out-fixed {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, var(--accent-danger), #dc2626);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            display: none;
+        }
+
+        .clock-out-fixed:active {
+            transform: scale(0.95);
+        }
+
+        /* Container */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Big Action Buttons */
+        .big-btn {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        .big-btn:active {
+            transform: scale(0.98);
+        }
+
+        .big-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .big-btn.success {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            color: white;
+        }
+
+        .big-btn.primary {
+            background: linear-gradient(135deg, var(--accent-primary), #2563eb);
+            color: white;
+        }
+
+        .big-btn.danger {
+            background: linear-gradient(135deg, var(--accent-danger), #dc2626);
+            color: white;
+        }
+
+        .big-btn.warning {
+            background: linear-gradient(135deg, var(--accent-warning), #d97706);
+            color: white;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 14px;
+            background: rgba(21, 25, 50, 0.9);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        select option {
+            background: #1a1f3a;
+            color: #ffffff;
+            padding: 12px;
+        }
+
+        /* Status Card */
+        .status-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .status-card.clocked-in {
+            border-color: var(--accent-success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .section-header {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin: 24px 0 12px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Management Cards */
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .management-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .management-card:active {
+            transform: scale(0.95);
+        }
+
+        .management-icon {
+            font-size: 40px;
+            margin-bottom: 8px;
+        }
+
+        .management-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* List Items */
+        .list-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .item-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-edit {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-delete {
+            background: var(--accent-danger);
+            color: white;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-content {
+            max-width: 500px;
+            margin: 20px auto;
+            background: var(--bg-dark);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            border-color: var(--accent-success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-tertiary);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="manager-header">
+        <div class="header-row">
+            <div class="manager-name" id="manager-name">Loading...</div>
+            <div class="sync-status">
+                <div class="status-indicator" id="sync-indicator">
+                    <div class="status-dot synced" id="sync-dot"></div>
+                    <span id="sync-text">Synced</span>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="work-mode-btn" onclick="switchMode('work')">
+                👷 Work Mode
+            </button>
+            <button class="mode-btn" id="manage-mode-btn" onclick="switchMode('manage')">
+                ⚙️ Manage
+            </button>
+        </div>
+    </div>
+
+    <!-- Clock Out Button (fixed, always visible when clocked in) -->
+    <button class="clock-out-fixed" id="clock-out-fixed-btn" onclick="clockOut()">
+        🏁 Clock Out
+    </button>
+
+    <div class="container">
+        <!-- ============================================ -->
+        <!-- WORK MODE: Worker App Replica -->
+        <!-- ============================================ -->
+        <div id="work-mode">
+            <!-- Step 1: Clock In (initial screen) -->
+            <div id="clock-in-screen">
+                <div class="status-card">
+                    <div style="font-size: 56px; font-weight: 300; font-variant-numeric: tabular-nums; margin-bottom: 8px;" id="live-clock">00:00:00</div>
+                    <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;" id="live-date">Loading...</div>
+                    <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Ready to Start</div>
+                    <div style="color: var(--text-secondary);">Select a project to clock in</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Select Project</label>
+                    <select id="project-select" onchange="enableClockIn()">
+                        <option value="">-- Choose Project --</option>
+                    </select>
+                </div>
+
+                <button class="big-btn success" id="clock-in-btn" onclick="clockIn()" disabled>
+                    ⏰ Clock In to Project
+                </button>
+            </div>
+
+            <!-- Step 2: Task Selection (after clock in) -->
+            <div id="task-selection-screen" class="hidden">
+                <div class="status-card clocked-in">
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Clocked In</div>
+                    <div id="clocked-project-name" style="color: var(--text-secondary);"></div>
+                </div>
+
+                <div class="section-header">Choose Area & Task to Start</div>
+
+                <div class="form-group">
+                    <label class="form-label">Area</label>
+                    <select id="area-select" onchange="loadTasksForArea()">
+                        <option value="">-- Select Area --</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="task-select-group">
+                    <label class="form-label">Task</label>
+                    <select id="task-select-dropdown">
+                        <option value="">-- Select Task --</option>
+                    </select>
+                </div>
+
+                <button class="big-btn primary" id="start-task-btn" onclick="startSelectedTask()" disabled>
+                    ▶️ Start Task
+                </button>
+            </div>
+
+            <!-- Step 3: Active Task (working on task) -->
+            <div id="active-task-screen" class="hidden">
+                <div class="status-card clocked-in">
+                    <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 4px;">Currently Working On</div>
+                    <div style="font-size: 20px; font-weight: 600;" id="current-task-name"></div>
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;" id="current-task-area"></div>
+                </div>
+
+                <!-- Task Actions -->
+                <button class="big-btn warning" onclick="showReportModal()">
+                    📸 Send Report
+                </button>
+
+                <button class="big-btn success" onclick="completeCurrentTask()">
+                    ✅ Complete Task
+                </button>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- MANAGE MODE: Management Dashboard -->
+        <!-- ============================================ -->
+        <div id="manage-mode" class="hidden">
+            <div class="section-header">Management Dashboard</div>
+
+            <!-- Quick Management Actions -->
+            <div class="management-grid">
+                <div class="management-card" onclick="showManageAreas()">
+                    <div class="management-icon">📍</div>
+                    <div class="management-title">Areas</div>
+                </div>
+
+                <div class="management-card" onclick="showManageTasks()">
+                    <div class="management-icon">📋</div>
+                    <div class="management-title">Tasks</div>
+                </div>
+
+                <div class="management-card" onclick="showManageTools()">
+                    <div class="management-icon">🔧</div>
+                    <div class="management-title">Tools</div>
+                </div>
+
+                <div class="management-card" onclick="showManageUsers()">
+                    <div class="management-icon">👥</div>
+                    <div class="management-title">Users</div>
+                </div>
+            </div>
+
+            <!-- Project Selector for Management -->
+            <div class="form-group" style="margin-top: 30px;">
+                <label class="form-label">Select Project to Manage</label>
+                <select id="manage-project-select" onchange="loadManagementProject()">
+                    <option value="">-- Choose Project --</option>
+                </select>
+            </div>
+
+            <!-- Management Content Area -->
+            <div id="management-content"></div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="report-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📸 Send Report</h3>
+                <button class="close-btn" onclick="closeReportModal()">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Report Notes</label>
+                <textarea id="report-text" placeholder="Describe the work completed, any issues, or updates..." rows="6"></textarea>
+            </div>
+
+            <button class="big-btn primary" onclick="submitReport()">
+                📤 Submit Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Area Modal -->
+    <div id="add-area-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Area</h3>
+                <button class="close-btn" onclick="closeModal('add-area-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Area Name</label>
+                <input type="text" id="new-area-name" placeholder="e.g., Kitchen, Lobby">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Billable</label>
+                <select id="new-area-billable">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="addArea()">
+                ✅ Add Area
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div id="add-task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Task</h3>
+                <button class="close-btn" onclick="closeModal('add-task-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Select Area</label>
+                <select id="task-area-select">
+                    <option value="">-- Choose Area --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Task Name</label>
+                <input type="text" id="new-task-name" placeholder="e.g., Paint walls">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign To</label>
+                <select id="task-assignee-select">
+                    <option value="">-- Select Worker --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select id="task-priority">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="addTask()">
+                ✅ Add Task
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Tool Modal -->
+    <div id="add-tool-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Tool</h3>
+                <button class="close-btn" onclick="closeModal('add-tool-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Tool Name</label>
+                <input type="text" id="new-tool-name" placeholder="e.g., Impact Drill">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Serial Number</label>
+                <input type="text" id="new-tool-serial" placeholder="e.g., SN-12345">
+            </div>
+
+            <button class="big-btn success" onclick="addTool()">
+                ✅ Add Tool
+            </button>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New User</h3>
+                <button class="close-btn" onclick="closeModal('add-user-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="new-user-name" placeholder="e.g., John Smith">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">PIN (4 digits)</label>
+                <input type="number" id="new-user-pin" placeholder="e.g., 1234" maxlength="4">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Access Level</label>
+                <select id="new-user-access">
+                    <option value="Worker">Worker</option>
+                    <option value="Manager">Manager</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="addUser()">
+                ✅ Add User
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ===== GOOGLE DRIVE & APIS CONFIGURATION =====
+        const CLIENT_ID = '904576712649-mcrh6cl8ei84gktkfg2f36eqc8454k1q.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyBoEAEz1NnCJDQ221u4XxXZIBaQrN-nlAc';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        let gapiInited = false;
+        let gisInited = false;
+        let tokenClient;
+        let accessToken = null;
+
+        // Global State
+        let currentUser = null;
+        let hubState = null;
+        let selectedProject = null;
+        let managementProject = null;
+        let currentTask = null;
+        let clockedInTime = null;
+        let currentMode = 'work'; // 'work' or 'manage'
+
+        // BroadcastChannel for instant state sync with hub
+        const stateChannel = new BroadcastChannel('pm_hub_state');
+
+        // Listen for state updates from hub
+        stateChannel.onmessage = function(event) {
+            if (event.data.type === 'STATE_UPDATED') {
+                console.log('📡 Manager: State update received');
+                loadHubState();
+
+                // Refresh current view
+                if (currentMode === 'work') {
+                    // Refresh work mode if needed
+                    if (selectedProject) {
+                        selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                    }
+                } else {
+                    // Refresh management view if needed
+                    if (managementProject) {
+                        loadManagementProject();
+                    }
+                }
+            }
+        };
+
+        // ===== MODE SWITCHING =====
+        function switchMode(mode) {
+            currentMode = mode;
+
+            document.getElementById('work-mode-btn').classList.toggle('active', mode === 'work');
+            document.getElementById('manage-mode-btn').classList.toggle('active', mode === 'manage');
+
+            document.getElementById('work-mode').classList.toggle('hidden', mode !== 'work');
+            document.getElementById('manage-mode').classList.toggle('hidden', mode !== 'manage');
+
+            // Hide clock out button in manage mode
+            if (mode === 'manage') {
+                document.getElementById('clock-out-fixed-btn').style.display = 'none';
+            } else if (clockedInTime) {
+                document.getElementById('clock-out-fixed-btn').style.display = 'block';
+            }
+
+            // Load management projects if switching to manage mode
+            if (mode === 'manage') {
+                loadManagementProjects();
+            }
+        }
+
+        // ===== INITIALIZATION =====
+        function init() {
+            // Get current user from login
+            const userStr = localStorage.getItem('pm_hub_current_user');
+            if (!userStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = JSON.parse(userStr);
+
+            // Verify user is a manager
+            if (currentUser.accessLevel !== 'Manager') {
+                alert('Access denied. Manager account required.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('manager-name').textContent = currentUser.name;
+
+            // Start live clock
+            startLiveClock();
+
+            // Initialize Google APIs
+            initGoogleAPIs();
+
+            // Load hub state
+            loadHubState();
+
+            // Check if already clocked in
+            checkClockStatus();
+
+            // Load projects
+            loadProjects();
+        }
+
+        // Live Clock Functions
+        function startLiveClock() {
+            updateLiveClock();
+            setInterval(updateLiveClock, 1000);
+        }
+
+        function updateLiveClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) {
+                clockEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateEl = document.getElementById('live-date');
+            if (dateEl) {
+                dateEl.textContent = now.toLocaleDateString('en-US', options);
+            }
+        }
+
+        function loadHubState() {
+            const stateStr = localStorage.getItem('pmSystemState');
+            if (stateStr) {
+                hubState = JSON.parse(stateStr);
+            } else {
+                hubState = { projects: [], tools: [], timeEntries: [], activities: [], reports: [], ourTeam: [], clientTeam: [] };
+            }
+        }
+
+        async function saveHubState(section = 'general') {
+            hubState.isOnline = navigator.onLine;
+            localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+
+            // Sync to Firebase if enabled
+            if (window.firebaseEnabled && window.db) {
+                try {
+                    const cleanData = {
+                        projects: Array.isArray(hubState.projects) ? hubState.projects : [],
+                        ourTeam: Array.isArray(hubState.ourTeam) ? hubState.ourTeam : [],
+                        clientTeam: Array.isArray(hubState.clientTeam) ? hubState.clientTeam : [],
+                        tools: Array.isArray(hubState.tools) ? hubState.tools : [],
+                        activities: Array.isArray(hubState.activities) ? hubState.activities.slice(0, 100) : [],
+                        reports: Array.isArray(hubState.reports) ? hubState.reports.slice(0, 50) : [],
+                        timeEntries: Array.isArray(hubState.timeEntries) ? hubState.timeEntries : [],
+                        lastModified: new Date().toISOString(),
+                        lastSyncedBy: currentUser ? currentUser.name : 'manager'
+                    };
+
+                    await window.firestore.setDoc(
+                        window.firestore.doc(window.db, 'hubs', 'main'),
+                        cleanData,
+                        { merge: true }
+                    );
+                } catch (error) {
+                    console.error('Firebase sync error:', error);
+                }
+            }
+
+            // Broadcast state change
+            stateChannel.postMessage({
+                type: 'STATE_UPDATED',
+                section: section,
+                timestamp: Date.now(),
+                source: 'manager'
+            });
+        }
+
+        // ===== GOOGLE DRIVE INTEGRATION =====
+        function initGoogleAPIs() {
+            if (typeof gapi !== 'undefined') {
+                gapi.load('client', async () => {
+                    try {
+                        await gapi.client.init({
+                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+                        });
+                        gapiInited = true;
+
+                        const loginToken = localStorage.getItem('drive_token_from_login');
+                        if (loginToken) {
+                            gapi.client.setToken({ access_token: loginToken });
+                            accessToken = loginToken;
+                        }
+                    } catch (error) {
+                        console.error('GAPI init error:', error);
+                    }
+                });
+            }
+
+            if (typeof google !== 'undefined' && google.accounts) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (tokenResponse) => {
+                        accessToken = tokenResponse.access_token;
+                    }
+                });
+                gisInited = true;
+            }
+        }
+
+        // ===== WORK MODE FUNCTIONS (Worker App Replica) =====
+        function checkClockStatus() {
+            if (!hubState.timeEntries) hubState.timeEntries = [];
+
+            const today = new Date().toDateString();
+            const todayEntries = hubState.timeEntries.filter(e =>
+                e.userId === currentUser.id &&
+                new Date(e.timestamp).toDateString() === today
+            );
+
+            const lastEntry = todayEntries[todayEntries.length - 1];
+            if (lastEntry && lastEntry.type === 'in') {
+                selectedProject = hubState.projects.find(p => p.id == lastEntry.projectId);
+                clockedInTime = new Date(lastEntry.timestamp);
+                showTaskSelection();
+                document.getElementById('clock-out-fixed-btn').style.display = 'block';
+            }
+        }
+
+        function loadProjects() {
+            const select = document.getElementById('project-select');
+            select.innerHTML = '<option value="">-- Choose Project --</option>';
+
+            if (hubState.projects) {
+                hubState.projects.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+            }
+        }
+
+        function enableClockIn() {
+            const projectId = document.getElementById('project-select').value;
+            document.getElementById('clock-in-btn').disabled = !projectId;
+        }
+
+        async function clockIn() {
+            const projectId = document.getElementById('project-select').value;
+            if (!projectId) return;
+
+            selectedProject = hubState.projects.find(p => p.id == projectId);
+            clockedInTime = new Date();
+
+            if (!hubState.timeEntries) hubState.timeEntries = [];
+            hubState.timeEntries.push({
+                id: Date.now().toString(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                projectId: projectId,
+                type: 'in',
+                timestamp: clockedInTime.toISOString()
+            });
+
+            logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+
+            await saveHubState();
+            showTaskSelection();
+            document.getElementById('clock-out-fixed-btn').style.display = 'block';
+        }
+
+        function showTaskSelection() {
+            document.getElementById('clock-in-screen').classList.add('hidden');
+            document.getElementById('active-task-screen').classList.add('hidden');
+            document.getElementById('task-selection-screen').classList.remove('hidden');
+            document.getElementById('clocked-project-name').textContent = selectedProject.name;
+
+            const areaSelect = document.getElementById('area-select');
+            areaSelect.innerHTML = '<option value="">-- Select Area --</option>';
+
+            if (selectedProject.areas) {
+                selectedProject.areas.forEach(area => {
+                    areaSelect.innerHTML += `<option value="${area.id}">${area.name}</option>`;
+                });
+            }
+        }
+
+        function loadTasksForArea() {
+            const areaId = document.getElementById('area-select').value;
+            const taskSelect = document.getElementById('task-select-dropdown');
+            const startBtn = document.getElementById('start-task-btn');
+
+            if (!areaId) {
+                startBtn.disabled = true;
+                return;
+            }
+
+            const area = selectedProject.areas.find(a => a.id == areaId);
+            if (!area || !area.tasks || area.tasks.length === 0) {
+                startBtn.disabled = false;
+                return;
+            }
+
+            taskSelect.innerHTML = '<option value="">-- Select Task --</option>';
+
+            area.tasks.forEach(task => {
+                if (!task.completed) {
+                    const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+                    taskSelect.innerHTML += `<option value="${task.wbs}">${priorityIcon} ${task.wbs} - ${task.name}</option>`;
+                }
+            });
+
+            taskSelect.onchange = () => {
+                startBtn.disabled = !taskSelect.value;
+            };
+        }
+
+        async function startSelectedTask() {
+            const areaId = document.getElementById('area-select').value;
+            if (!areaId) return;
+
+            const project = hubState.projects.find(p => p.id == selectedProject.id);
+            const area = project.areas.find(a => a.id == areaId);
+            const taskWbs = document.getElementById('task-select-dropdown').value;
+
+            if (taskWbs) {
+                const task = area.tasks.find(t => t.wbs == taskWbs);
+                if (!task) return;
+
+                task.status = 'progress';
+                task.startedAt = new Date().toISOString();
+                task.startedBy = currentUser.name;
+
+                currentTask = {
+                    projectId: project.id,
+                    areaId: areaId,
+                    areaName: area.name,
+                    wbs: taskWbs,
+                    name: task.name
+                };
+
+                logActivity('TASK_START', `Started: ${task.name}`);
+            } else {
+                currentTask = {
+                    projectId: project.id,
+                    areaId: areaId,
+                    areaName: area.name,
+                    wbs: null,
+                    name: area.name
+                };
+
+                logActivity('TASK_START', `Started working on: ${area.name}`);
+            }
+
+            await saveHubState('projects');
+            showActiveTask();
+        }
+
+        function showActiveTask() {
+            document.getElementById('task-selection-screen').classList.add('hidden');
+            document.getElementById('active-task-screen').classList.remove('hidden');
+            document.getElementById('current-task-name').textContent = currentTask.name;
+            document.getElementById('current-task-area').textContent = `Area: ${currentTask.areaName}`;
+        }
+
+        async function completeCurrentTask() {
+            if (!currentTask) return;
+
+            const project = hubState.projects.find(p => p.id == currentTask.projectId);
+            const area = project.areas.find(a => a.id == currentTask.areaId);
+
+            if (currentTask.wbs) {
+                const task = area.tasks.find(t => t.wbs == currentTask.wbs);
+                if (task) {
+                    let actualHours = task.estimatedHours || 0;
+                    if (task.startedAt) {
+                        const started = new Date(task.startedAt);
+                        const completed = new Date();
+                        const hoursWorked = (completed - started) / (1000 * 60 * 60);
+                        actualHours = Math.round(hoursWorked * 10) / 10;
+                    }
+
+                    task.status = 'done';
+                    task.completed = true;
+                    task.completedAt = new Date().toISOString();
+                    task.completedBy = currentUser.name;
+                    task.actualHours = actualHours;
+
+                    logActivity('TASK_COMPLETE', `Completed: ${task.name}`, {
+                        hours: actualHours
+                    });
+                }
+            }
+
+            await saveHubState('projects');
+            currentTask = null;
+            showTaskSelection();
+            showToast('Task completed!', 'success');
+        }
+
+        function showReportModal() {
+            document.getElementById('report-modal').style.display = 'block';
+            document.getElementById('report-text').value = '';
+        }
+
+        function closeReportModal() {
+            document.getElementById('report-modal').style.display = 'none';
+        }
+
+        async function submitReport() {
+            const text = document.getElementById('report-text').value.trim();
+            if (!text) {
+                alert('Please enter report text');
+                return;
+            }
+
+            if (!hubState.reports) hubState.reports = [];
+
+            hubState.reports.push({
+                id: Date.now().toString(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                projectId: currentTask ? currentTask.projectId : null,
+                areaId: currentTask ? currentTask.areaId : null,
+                taskId: currentTask ? currentTask.wbs : null,
+                text: text,
+                timestamp: new Date().toISOString()
+            });
+
+            logActivity('REPORT', text);
+            await saveHubState();
+            closeReportModal();
+            showToast('Report submitted!', 'success');
+        }
+
+        async function clockOut() {
+            if (!hubState.timeEntries) hubState.timeEntries = [];
+
+            hubState.timeEntries.push({
+                id: Date.now().toString(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                projectId: selectedProject.id,
+                type: 'out',
+                timestamp: new Date().toISOString()
+            });
+
+            logActivity('CLOCK_OUT', `Clocked out from ${selectedProject.name}`);
+
+            await saveHubState();
+
+            selectedProject = null;
+            currentTask = null;
+            clockedInTime = null;
+
+            document.getElementById('task-selection-screen').classList.add('hidden');
+            document.getElementById('active-task-screen').classList.add('hidden');
+            document.getElementById('clock-in-screen').classList.remove('hidden');
+            document.getElementById('clock-out-fixed-btn').style.display = 'none';
+
+            showToast('Clocked out successfully!', 'success');
+        }
+
+        // ===== MANAGEMENT MODE FUNCTIONS =====
+        function loadManagementProjects() {
+            const select = document.getElementById('manage-project-select');
+            select.innerHTML = '<option value="">-- Choose Project --</option>';
+
+            if (hubState.projects) {
+                hubState.projects.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+            }
+        }
+
+        function loadManagementProject() {
+            const projectId = document.getElementById('manage-project-select').value;
+            if (!projectId) {
+                document.getElementById('management-content').innerHTML = '';
+                return;
+            }
+
+            managementProject = hubState.projects.find(p => p.id == projectId);
+        }
+
+        // ===== MANAGE AREAS =====
+        function showManageAreas() {
+            if (!managementProject) {
+                showToast('Please select a project first', 'warning');
+                return;
+            }
+
+            const areas = managementProject.areas || [];
+            let html = `
+                <div class="section-header">Areas for ${managementProject.name}</div>
+                <button class="big-btn primary" onclick="openModal('add-area-modal')">
+                    ➕ Add New Area
+                </button>
+            `;
+
+            if (areas.length === 0) {
+                html += `<div class="empty-state"><div class="empty-icon">📍</div><div>No areas yet</div></div>`;
+            } else {
+                areas.forEach(area => {
+                    html += `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <div class="item-title">${area.name}</div>
+                                <div class="item-meta">
+                                    ${area.billable ? '💰 Billable' : '📋 Non-billable'} •
+                                    ${area.tasks?.length || 0} tasks
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-sm btn-delete" onclick="deleteArea('${area.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('management-content').innerHTML = html;
+        }
+
+        async function addArea() {
+            const name = document.getElementById('new-area-name').value.trim();
+            const billable = document.getElementById('new-area-billable').value === 'true';
+
+            if (!name) {
+                alert('Please enter area name');
+                return;
+            }
+
+            if (!managementProject.areas) managementProject.areas = [];
+
+            const newArea = {
+                id: Date.now().toString(),
+                name: name,
+                billable: billable,
+                tasks: [],
+                createdAt: new Date().toISOString()
+            };
+
+            managementProject.areas.push(newArea);
+
+            logActivity('AREA_CREATED', `Created area: ${name}`);
+            await saveHubState('projects');
+
+            closeModal('add-area-modal');
+            showManageAreas();
+            showToast('Area added!', 'success');
+        }
+
+        async function deleteArea(areaId) {
+            if (!confirm('Delete this area and all its tasks?')) return;
+
+            managementProject.areas = managementProject.areas.filter(a => a.id !== areaId);
+
+            await saveHubState('projects');
+            showManageAreas();
+            showToast('Area deleted', 'success');
+        }
+
+        // ===== MANAGE TASKS =====
+        function showManageTasks() {
+            if (!managementProject) {
+                showToast('Please select a project first', 'warning');
+                return;
+            }
+
+            // Populate area selector in add task modal
+            const areaSelect = document.getElementById('task-area-select');
+            areaSelect.innerHTML = '<option value="">-- Choose Area --</option>';
+
+            const areas = managementProject.areas || [];
+            areas.forEach(area => {
+                areaSelect.innerHTML += `<option value="${area.id}">${area.name}</option>`;
+            });
+
+            // Populate assignee selector
+            const assigneeSelect = document.getElementById('task-assignee-select');
+            assigneeSelect.innerHTML = '<option value="">-- Select Worker --</option>';
+
+            const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
+            allUsers.forEach(user => {
+                assigneeSelect.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+            });
+
+            let html = `
+                <div class="section-header">Tasks for ${managementProject.name}</div>
+                <button class="big-btn primary" onclick="openModal('add-task-modal')">
+                    ➕ Add New Task
+                </button>
+            `;
+
+            let allTasks = [];
+            areas.forEach(area => {
+                if (area.tasks) {
+                    area.tasks.forEach(task => {
+                        allTasks.push({ ...task, areaName: area.name, areaId: area.id });
+                    });
+                }
+            });
+
+            if (allTasks.length === 0) {
+                html += `<div class="empty-state"><div class="empty-icon">📋</div><div>No tasks yet</div></div>`;
+            } else {
+                allTasks.forEach(task => {
+                    const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+                    const statusBadge = task.completed ? '✅ Done' : task.status === 'progress' ? '🔄 In Progress' : '⏳ Pending';
+                    const assigneeName = allUsers.find(u => u.id == task.assignee)?.name || 'Unassigned';
+
+                    html += `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <div class="item-title">${priorityIcon} ${task.name}</div>
+                                <div class="item-meta">
+                                    ${task.areaName} • ${statusBadge} • Assigned to: ${assigneeName}
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-sm btn-delete" onclick="deleteTask('${task.areaId}', '${task.wbs}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('management-content').innerHTML = html;
+        }
+
+        async function addTask() {
+            const areaId = document.getElementById('task-area-select').value;
+            const name = document.getElementById('new-task-name').value.trim();
+            const assignee = document.getElementById('task-assignee-select').value;
+            const priority = document.getElementById('task-priority').value;
+
+            if (!areaId || !name) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const area = managementProject.areas.find(a => a.id == areaId);
+            if (!area) return;
+
+            if (!area.tasks) area.tasks = [];
+
+            // Generate WBS number
+            const wbs = `${managementProject.code || 'T'}.${area.id.slice(-3)}.${area.tasks.length + 1}`;
+
+            const newTask = {
+                wbs: wbs,
+                name: name,
+                assignee: assignee,
+                priority: priority,
+                status: 'pending',
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            area.tasks.push(newTask);
+
+            logActivity('TASK_CREATED', `Created task: ${name}`);
+            await saveHubState('projects');
+
+            closeModal('add-task-modal');
+            showManageTasks();
+            showToast('Task added!', 'success');
+        }
+
+        async function deleteTask(areaId, taskWbs) {
+            if (!confirm('Delete this task?')) return;
+
+            const area = managementProject.areas.find(a => a.id == areaId);
+            if (area && area.tasks) {
+                area.tasks = area.tasks.filter(t => t.wbs !== taskWbs);
+            }
+
+            await saveHubState('projects');
+            showManageTasks();
+            showToast('Task deleted', 'success');
+        }
+
+        // ===== MANAGE TOOLS =====
+        function showManageTools() {
+            let html = `
+                <div class="section-header">Tools Management</div>
+                <button class="big-btn primary" onclick="openModal('add-tool-modal')">
+                    ➕ Add New Tool
+                </button>
+            `;
+
+            const tools = hubState.tools || [];
+
+            if (tools.length === 0) {
+                html += `<div class="empty-state"><div class="empty-icon">🔧</div><div>No tools yet</div></div>`;
+            } else {
+                tools.forEach(tool => {
+                    const statusBadge = tool.status === 'available' ? '✅ Available' : `🔒 Checked out to ${tool.checkedOutBy}`;
+
+                    html += `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <div class="item-title">${tool.name}</div>
+                                <div class="item-meta">
+                                    Serial: ${tool.serial} • ${statusBadge}
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-sm btn-delete" onclick="deleteTool('${tool.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('management-content').innerHTML = html;
+        }
+
+        async function addTool() {
+            const name = document.getElementById('new-tool-name').value.trim();
+            const serial = document.getElementById('new-tool-serial').value.trim();
+
+            if (!name || !serial) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            if (!hubState.tools) hubState.tools = [];
+
+            const newTool = {
+                id: Date.now().toString(),
+                name: name,
+                serial: serial,
+                status: 'available',
+                createdAt: new Date().toISOString()
+            };
+
+            hubState.tools.push(newTool);
+
+            logActivity('TOOL_CREATED', `Added tool: ${name}`);
+            await saveHubState('tools');
+
+            closeModal('add-tool-modal');
+            showManageTools();
+            showToast('Tool added!', 'success');
+        }
+
+        async function deleteTool(toolId) {
+            if (!confirm('Delete this tool?')) return;
+
+            hubState.tools = hubState.tools.filter(t => t.id !== toolId);
+
+            await saveHubState('tools');
+            showManageTools();
+            showToast('Tool deleted', 'success');
+        }
+
+        // ===== MANAGE USERS =====
+        function showManageUsers() {
+            let html = `
+                <div class="section-header">Users Management</div>
+                <button class="big-btn primary" onclick="openModal('add-user-modal')">
+                    ➕ Add New User
+                </button>
+            `;
+
+            const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
+
+            if (allUsers.length === 0) {
+                html += `<div class="empty-state"><div class="empty-icon">👥</div><div>No users yet</div></div>`;
+            } else {
+                allUsers.forEach(user => {
+                    const roleBadge = user.accessLevel === 'Admin' ? '👑 Admin' :
+                                     user.accessLevel === 'Manager' ? '⚙️ Manager' : '👷 Worker';
+
+                    html += `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <div class="item-title">${user.name}</div>
+                                <div class="item-meta">
+                                    ${roleBadge} • PIN: ${user.pin}
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-sm btn-delete" onclick="deleteUser('${user.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('management-content').innerHTML = html;
+        }
+
+        async function addUser() {
+            const name = document.getElementById('new-user-name').value.trim();
+            const pin = document.getElementById('new-user-pin').value.trim();
+            const accessLevel = document.getElementById('new-user-access').value;
+
+            if (!name || !pin) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            if (pin.length !== 4) {
+                alert('PIN must be 4 digits');
+                return;
+            }
+
+            if (!hubState.ourTeam) hubState.ourTeam = [];
+
+            const newUser = {
+                id: Date.now().toString(),
+                name: name,
+                pin: pin,
+                accessLevel: accessLevel,
+                createdAt: new Date().toISOString()
+            };
+
+            hubState.ourTeam.push(newUser);
+
+            logActivity('USER_CREATED', `Added user: ${name}`);
+            await saveHubState('users');
+
+            closeModal('add-user-modal');
+            showManageUsers();
+            showToast('User added!', 'success');
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Delete this user?')) return;
+
+            hubState.ourTeam = (hubState.ourTeam || []).filter(u => u.id !== userId);
+            hubState.clientTeam = (hubState.clientTeam || []).filter(u => u.id !== userId);
+
+            await saveHubState('users');
+            showManageUsers();
+            showToast('User deleted', 'success');
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function showToast(message, type = 'info', duration = 3000) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icon = type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ';
+            toast.innerHTML = `
+                <span style="font-size: 20px;">${icon}</span>
+                <span>${message}</span>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        function logActivity(type, message, details = {}) {
+            if (!hubState.activities) hubState.activities = [];
+
+            hubState.activities.push({
+                id: Date.now().toString(),
+                type: type,
+                userId: currentUser.id,
+                userName: currentUser.name,
+                projectId: selectedProject ? selectedProject.id : (managementProject ? managementProject.id : null),
+                message: message,
+                details: details,
+                timestamp: new Date().toISOString(),
+                source: 'manager'
+            });
+        }
+
+        function logout() {
+            if (clockedInTime) {
+                alert('Please clock out before logging out.');
+                return;
+            }
+
+            localStorage.removeItem('pm_hub_current_user');
+            window.location.href = 'index.html';
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

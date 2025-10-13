@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Users</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0a0e27;
+            color: #fff;
+            padding: 20px;
+        }
+        .user {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .level-Admin { border-color: #ef4444; }
+        .level-Manager { border-color: #f59e0b; }
+        .level-Worker { border-color: #3b82f6; }
+        .level-User { border-color: #8b5cf6; }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button:hover { background: #2563eb; }
+        .fix-btn { background: #f59e0b; }
+        .fix-btn:hover { background: #d97706; }
+    </style>
+</head>
+<body>
+    <h1>PM Hub - User Debug Tool</h1>
+    <p>This tool shows all users and their access levels. Use it to fix manager routing issues.</p>
+
+    <button onclick="loadUsers()" style="background: #10b981;">Refresh Users</button>
+    <button onclick="fixAllManagers()" class="fix-btn">Fix All Manager Access Levels</button>
+
+    <div id="users"></div>
+
+    <script>
+        function loadUsers() {
+            const hubState = localStorage.getItem('pmSystemState');
+            if (!hubState) {
+                document.getElementById('users').innerHTML = '<p>No hub state found</p>';
+                return;
+            }
+
+            const state = JSON.parse(hubState);
+            const allUsers = [...(state.ourTeam || []), ...(state.clientTeam || [])];
+
+            if (allUsers.length === 0) {
+                document.getElementById('users').innerHTML = '<p>No users found</p>';
+                return;
+            }
+
+            let html = '<h2>All Users (' + allUsers.length + ')</h2>';
+
+            allUsers.forEach((user, index) => {
+                const levelClass = 'level-' + (user.accessLevel || 'User');
+                html += `
+                    <div class="user ${levelClass}">
+                        <div><strong>Name:</strong> ${user.name}</div>
+                        <div><strong>Email:</strong> ${user.email || 'N/A'}</div>
+                        <div><strong>Access Level:</strong> <span style="font-size: 16px; font-weight: bold;">${user.accessLevel || 'User'}</span></div>
+                        <div><strong>PIN:</strong> ${user.pin || 'Not set'}</div>
+                        <div><strong>Role:</strong> ${user.role || 'N/A'}</div>
+                        <button onclick="testLogin('${user.pin}')">Test Login</button>
+                        ${user.accessLevel !== 'Manager' && (user.role === 'Project Manager' || user.role === 'Foreman') ?
+                            `<button class="fix-btn" onclick="makeManager('${user.id}')">Make Manager</button>` : ''}
+                    </div>
+                `;
+            });
+
+            document.getElementById('users').innerHTML = html;
+        }
+
+        function fixAllManagers() {
+            const hubState = localStorage.getItem('pmSystemState');
+            if (!hubState) {
+                alert('No hub state found');
+                return;
+            }
+
+            const state = JSON.parse(hubState);
+            let fixed = 0;
+
+            // Fix in ourTeam
+            if (state.ourTeam) {
+                state.ourTeam = state.ourTeam.map(user => {
+                    // Check if they have Manager-like roles but wrong access level
+                    if ((user.role === 'Project Manager' || user.role === 'Foreman') &&
+                        user.accessLevel !== 'Manager' && user.accessLevel !== 'Admin') {
+                        user.accessLevel = 'Manager';
+                        fixed++;
+                    }
+                    return user;
+                });
+            }
+
+            // Fix in clientTeam
+            if (state.clientTeam) {
+                state.clientTeam = state.clientTeam.map(user => {
+                    if ((user.role === 'Project Manager' || user.role === 'Foreman') &&
+                        user.accessLevel !== 'Manager' && user.accessLevel !== 'Admin') {
+                        user.accessLevel = 'Manager';
+                        fixed++;
+                    }
+                    return user;
+                });
+            }
+
+            localStorage.setItem('pmSystemState', JSON.stringify(state));
+            alert(`Fixed ${fixed} user(s). Refresh to see changes.`);
+            loadUsers();
+        }
+
+        function makeManager(userId) {
+            const hubState = localStorage.getItem('pmSystemState');
+            if (!hubState) {
+                alert('No hub state found');
+                return;
+            }
+
+            const state = JSON.parse(hubState);
+
+            // Update in ourTeam
+            if (state.ourTeam) {
+                const user = state.ourTeam.find(u => u.id === userId);
+                if (user) {
+                    user.accessLevel = 'Manager';
+                    localStorage.setItem('pmSystemState', JSON.stringify(state));
+                    alert(`${user.name} is now a Manager`);
+                    loadUsers();
+                    return;
+                }
+            }
+
+            // Update in clientTeam
+            if (state.clientTeam) {
+                const user = state.clientTeam.find(u => u.id === userId);
+                if (user) {
+                    user.accessLevel = 'Manager';
+                    localStorage.setItem('pmSystemState', JSON.stringify(state));
+                    alert(`${user.name} is now a Manager`);
+                    loadUsers();
+                    return;
+                }
+            }
+        }
+
+        function testLogin(pin) {
+            alert(`Testing login with PIN: ${pin}\n\nNow logout and try logging in with this PIN to test the routing.`);
+        }
+
+        // Load users on page load
+        loadUsers();
+    </script>
+</body>
+</html>

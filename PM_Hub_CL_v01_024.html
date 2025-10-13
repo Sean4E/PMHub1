@@ -2093,8 +2093,8 @@
             <div class="form-group">
                 <label class="form-label">Access Level</label>
                 <select id="memberAccessLevel">
-                    <option value="User">User (Worker App)</option>
-                    <option value="Manager">Manager (Full Hub)</option>
+                    <option value="Worker">Worker (Worker App)</option>
+                    <option value="Manager">Manager (Manager App)</option>
                     <option value="Admin">Admin (Full Hub)</option>
                 </select>
             </div>
@@ -2734,6 +2734,24 @@
 
         // Initialize
         window.onload = async function() {
+            // Check user access level
+            const userStr = localStorage.getItem('pm_hub_current_user');
+            if (userStr) {
+                const currentUser = JSON.parse(userStr);
+
+                // Redirect managers to their app
+                if (currentUser.accessLevel === 'Manager') {
+                    window.location.href = 'manager.html';
+                    return;
+                }
+
+                // Redirect workers to their app
+                if (currentUser.accessLevel === 'Worker') {
+                    window.location.href = 'worker.html';
+                    return;
+                }
+            }
+
             await loadState();
 
             // Request notification permissions if not already granted

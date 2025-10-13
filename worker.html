@@ -755,6 +755,17 @@
             }
 
             currentUser = JSON.parse(userStr);
+
+            // Redirect non-workers to their appropriate apps
+            if (currentUser.accessLevel === 'Admin') {
+                window.location.href = 'PM_Hub_CL_v01_024.html';
+                return;
+            }
+            if (currentUser.accessLevel === 'Manager') {
+                window.location.href = 'manager.html';
+                return;
+            }
+
             document.getElementById('worker-name').textContent = currentUser.name;
 
             // Start live clock
