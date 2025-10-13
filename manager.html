@@ -1430,13 +1430,17 @@
             // Generate WBS number
             const wbs = `${managementProject.code || 'T'}.${area.id.slice(-3)}.${area.tasks.length + 1}`;
 
+            // Create task with hub-compatible structure
             const newTask = {
+                id: Date.now(),
                 wbs: wbs,
                 name: name,
                 assignee: assignee,
                 priority: priority,
-                status: 'pending',
+                description: '',
+                status: 'todo',  // Hub uses 'todo', not 'pending'
                 completed: false,
+                children: [],  // Hub expects children array
                 createdAt: new Date().toISOString()
             };
 

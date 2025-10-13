@@ -4585,6 +4585,7 @@
                 let task;
                 let isNewTask = !wbs;
                 let oldAssignee = null;
+                let activityId = null; // Define at function scope
 
             if (wbs) {
                 // Edit existing task
@@ -4652,7 +4653,7 @@
                 state.currentArea.tasks.push(task);
 
                 // Log activity (will update with folder ID later if created)
-                const activityId = Date.now().toString();
+                activityId = Date.now().toString();
                 logActivity('Task Added', `Added task "${title}" via Add Task form`, {
                     taskId: task.id,
                     taskWbs: task.wbs,
