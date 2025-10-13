@@ -33,6 +33,9 @@ class PMHubRealtimeSync {
 
     init() {
         console.log(`🚀 ${this.appName}: Real-time sync initialized`);
+        console.log(`   - User:`, this.currentUser?.name || 'Unknown');
+        console.log(`   - Firebase available:`, !!window.firebaseEnabled);
+        console.log(`   - BroadcastChannel created:`, !!this.stateChannel);
 
         // Listen to BroadcastChannel messages
         this.stateChannel.onmessage = (event) => this.handleBroadcastMessage(event);
@@ -84,11 +87,19 @@ class PMHubRealtimeSync {
     }
 
     handleBroadcastMessage(event) {
+        console.log(`📻 ${this.appName}: Broadcast message received`, {
+            type: event.data.type,
+            source: event.data.source,
+            myAppName: this.appName.toLowerCase()
+        });
+
         if (event.data.type === 'STATE_UPDATED' && event.data.source !== this.appName.toLowerCase()) {
             console.log(`📡 ${this.appName}: Broadcast received from ${event.data.source}`);
+            console.log(`   - Timestamp check: ${event.data.timestamp} > ${this.lastUpdateTimestamp}? ${event.data.timestamp > this.lastUpdateTimestamp}`);
 
             // Only process if this is a newer update
             if (event.data.timestamp > this.lastUpdateTimestamp) {
+                console.log(`✅ ${this.appName}: Processing broadcast update`);
                 this.handleStateUpdate({
                     source: 'broadcast',
                     section: event.data.section,
@@ -96,11 +107,21 @@ class PMHubRealtimeSync {
                     activity: event.data.activity,
                     timestamp: event.data.timestamp
                 });
+            } else {
+                console.log(`⏭️ ${this.appName}: Skipping old broadcast`);
             }
+        } else if (event.data.source === this.appName.toLowerCase()) {
+            console.log(`🔄 ${this.appName}: Ignoring own broadcast`);
         }
     }
 
     handleStateUpdate(update) {
+        console.log(`🔄 ${this.appName}: Handling state update`, {
+            source: update.source,
+            section: update.section,
+            syncedBy: update.syncedBy
+        });
+
         this.lastUpdateTimestamp = update.timestamp;
         this.lastUpdateSource = update.source;
 
@@ -108,14 +129,18 @@ class PMHubRealtimeSync {
         const stateStr = localStorage.getItem('pmSystemState');
         if (stateStr) {
             const newState = JSON.parse(stateStr);
+            console.log(`✅ ${this.appName}: State loaded from localStorage`);
 
             // Call the app-specific update handler
+            console.log(`🎯 ${this.appName}: Calling onStateUpdate callback`);
             this.onStateUpdate(newState, update);
 
             // Show notification if there's activity info
             if (update.activity) {
                 this.queueNotification(update.activity, update.syncedBy);
             }
+        } else {
+            console.error(`❌ ${this.appName}: No state found in localStorage!`);
         }
     }
 

@@ -2341,20 +2341,26 @@
                 if (!accessToken) {
                     console.log('⚠️ No accessToken - checking localStorage...');
                     const loginToken = localStorage.getItem('drive_token_from_login');
+                    console.log('   - loginToken from localStorage:', loginToken ? loginToken.substring(0, 20) + '...' : 'NULL');
                     if (loginToken) {
                         accessToken = loginToken;
                         gapi.client.setToken({ access_token: loginToken });
                         console.log('✓ Using token from login page');
                     } else {
                         console.error('❌ No token found in localStorage');
+                        console.error('   User must authorize Google Drive at login screen');
                     }
+                } else {
+                    console.log('✅ accessToken already exists:', accessToken.substring(0, 20) + '...');
                 }
 
                 console.log('🌐 Online status:', navigator.onLine);
                 console.log('🔑 Access token exists:', !!accessToken);
+                console.log('🔑 Access token value:', accessToken ? accessToken.substring(0, 20) + '...' : 'NULL');
 
                 // Only upload if online AND authorized
                 if (navigator.onLine && accessToken) {
+                    console.log('✅ CONDITIONS MET - Starting upload process');
                     // Reload hub state to get latest folder IDs
                     loadHubState();
                     console.log('🔄 Reloaded hub state for latest folder info');
