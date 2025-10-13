@@ -1353,17 +1353,15 @@
         </div>
 
         <nav class="nav-tabs">
-            <button class="nav-tab active" onclick="switchSection('projects')">Projects</button>
-            <button class="nav-tab" onclick="switchSection('clients')">Clients</button>
-            <button class="nav-tab" onclick="switchSection('team')">Team</button>
-            <button class="nav-tab" onclick="switchSection('tools')">Tools</button>
-            <button class="nav-tab" onclick="switchSection('finances')">Finances</button>
-            <button class="nav-tab" onclick="switchSection('activity')">Activity</button>
-            <button class="nav-tab" onclick="switchSection('calendar')">Calendar</button>
-            <button class="nav-tab" onclick="switchSection('modules')">
-                💬 Communication
-            </button>
-            <button class="nav-tab" onclick="switchSection('admin')">Admin</button>
+            <button class="nav-tab active" onclick="switchSection('projects')">📁 Projects</button>
+            <button class="nav-tab" onclick="switchSection('clients')">👥 Clients</button>
+            <button class="nav-tab" onclick="switchSection('team')">👷 Team</button>
+            <button class="nav-tab" onclick="switchSection('tools')">🔧 Tools</button>
+            <button class="nav-tab" onclick="switchSection('finances')">💰 Finances</button>
+            <button class="nav-tab" onclick="switchSection('activity')">📊 Activity</button>
+            <button class="nav-tab" onclick="switchSection('calendar')">📅 Calendar</button>
+            <button class="nav-tab" onclick="switchSection('modules')">💬 Chat</button>
+            <button class="nav-tab" onclick="switchSection('admin')">⚙️ Admin</button>
         </nav>
 
         <div class="connection-status">
@@ -1790,11 +1788,11 @@
             </div>
         </section>
 
-        <!-- Communication Hub Section -->
+        <!-- Chat Section -->
         <section id="modules-section" class="main-content" style="display: none;">
             <div class="panel glass" style="grid-column: 1 / -1;">
                 <div class="panel-header">
-                    <h3 class="panel-title">💬 Communication Hub</h3>
+                    <h3 class="panel-title">💬 Task Chat</h3>
                 </div>
 
                 <div style="padding: 24px;">
@@ -8404,6 +8402,8 @@
             const areaId = document.getElementById('comm-area-select').value;
             const taskWbs = document.getElementById('comm-task-select').value;
 
+            console.log('💬 Selecting task:', { projectId, areaId, taskWbs });
+
             if (!projectId || !areaId || !taskWbs) {
                 document.getElementById('comm-chat-container').style.display = 'none';
                 document.getElementById('comm-empty-state').style.display = 'block';
@@ -8411,13 +8411,24 @@
             }
 
             const project = state.projects.find(p => p.id == projectId);
-            if (!project) return;
+            if (!project) {
+                console.error('❌ Project not found:', projectId);
+                return;
+            }
 
             const area = project.areas.find(a => a.id == areaId);
-            if (!area) return;
+            if (!area) {
+                console.error('❌ Area not found:', areaId);
+                return;
+            }
 
             const task = area.tasks.find(t => t.wbs == taskWbs);
-            if (!task) return;
+            if (!task) {
+                console.error('❌ Task not found:', taskWbs);
+                return;
+            }
+
+            console.log('✅ Task found:', task.name);
 
             // Store current task reference
             currentCommTask = { projectId, areaId, taskWbs, task };
@@ -8428,6 +8439,9 @@
                     messages: [],
                     participants: [state.currentUser.name]
                 };
+                console.log('📝 Initialized empty conversation');
+            } else {
+                console.log('💬 Conversation exists:', task.conversation.messages.length, 'messages');
             }
 
             // Update UI
@@ -8435,8 +8449,13 @@
             document.getElementById('comm-task-meta').textContent = `${task.wbs} • ${area.name} • Assigned to: ${task.assignee || 'Unassigned'}`;
 
             // Show chat container
-            document.getElementById('comm-chat-container').style.display = 'block';
-            document.getElementById('comm-empty-state').style.display = 'none';
+            const chatContainer = document.getElementById('comm-chat-container');
+            const emptyState = document.getElementById('comm-empty-state');
+
+            chatContainer.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            console.log('🎨 Chat container shown');
 
             // Render messages
             renderCommMessages();
@@ -8491,9 +8510,14 @@
             const input = document.getElementById('comm-chat-input');
             const text = input.value.trim();
 
-            if (!text || !currentCommTask) return;
+            if (!text || !currentCommTask) {
+                console.log('❌ Cannot send message: missing text or task');
+                return;
+            }
 
             const task = currentCommTask.task;
+
+            console.log('📤 Sending message:', text.substring(0, 50) + '...');
 
             // Create message
             const message = {
@@ -8507,6 +8531,7 @@
 
             // Add to conversation
             task.conversation.messages.push(message);
+            console.log('✅ Message added to conversation, total:', task.conversation.messages.length);
 
             // Update in state
             const project = state.projects.find(p => p.id == currentCommTask.projectId);
@@ -8516,20 +8541,23 @@
                     const stateTask = area.tasks.find(t => t.wbs == currentCommTask.taskWbs);
                     if (stateTask) {
                         stateTask.conversation = task.conversation;
+                        console.log('✅ State updated with conversation');
                     }
                 }
             }
 
             // Log activity
-            logActivity('TASK_MESSAGE', `New message in: ${task.name}`, state.currentUser.name, {
+            logActivity('TASK_MESSAGE', `New message in: ${task.name}`, {
                 taskName: task.name,
                 taskWbs: task.wbs,
                 assignee: task.assignee,
                 message: text.substring(0, 100)
             });
+            console.log('📝 Activity logged');
 
-            // Save
+            // Save and broadcast
             await saveState();
+            console.log('💾 State saved and broadcast');
 
             // Clear input
             input.value = '';

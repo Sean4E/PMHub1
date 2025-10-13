@@ -2879,6 +2879,22 @@
                                 managementProject = hubState.projects?.find(p => p.id == managementProject.id);
                                 // Refresh the current management view if it's open
                                 loadManagementProject();
+
+                                // If chat modal is open, refresh messages (Firebase realtime sync)
+                                if (currentChatTask) {
+                                    const chatModal = document.getElementById('task-chat-modal');
+                                    if (chatModal && chatModal.classList.contains('active')) {
+                                        const area = managementProject.areas?.find(a => a.id == currentChatTask.areaId);
+                                        if (area) {
+                                            const task = area.tasks?.find(t => t.wbs == currentChatTask.taskWbs);
+                                            if (task) {
+                                                currentChatTask.task = task;
+                                                renderChatMessages();
+                                                console.log('💬 Manager: Chat refreshed via Firebase sync');
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     });

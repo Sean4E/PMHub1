@@ -1074,6 +1074,28 @@
                         }
                     }
                 }
+
+                // If currently working on a task with chat open, refresh chat (BroadcastChannel sync)
+                if (currentTask) {
+                    const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+                    if (project) {
+                        const area = project.areas?.find(a => a.id == currentTask.areaId);
+                        if (area) {
+                            const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
+                            if (task) {
+                                currentTask = task;
+
+                                const chatModal = document.getElementById('task-chat-modal');
+                                if (chatModal && chatModal.classList.contains('active')) {
+                                    renderChatMessages();
+                                    console.log('💬 Worker: Chat refreshed via BroadcastChannel');
+                                }
+
+                                updateChatBadge();
+                            }
+                        }
+                    }
+                }
             }
         };
 
