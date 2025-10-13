@@ -1290,6 +1290,25 @@
             font-family: monospace;
         }
 
+        /* Tab Icon Styles */
+        .tab-icon {
+            filter: grayscale(100%);
+            opacity: 0.7;
+            transition: filter 0.2s ease, opacity 0.2s ease;
+        }
+
+        .nav-tab:hover .tab-icon,
+        .nav-tab.active .tab-icon {
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+
+        /* When color icons enabled via setting */
+        body.color-icons .tab-icon {
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+
         /* Communication Hub Chat Styles */
         .chat-message {
             margin-bottom: 16px;
@@ -1353,15 +1372,15 @@
         </div>
 
         <nav class="nav-tabs">
-            <button class="nav-tab active" onclick="switchSection('projects')">📁 Projects</button>
-            <button class="nav-tab" onclick="switchSection('clients')">👥 Clients</button>
-            <button class="nav-tab" onclick="switchSection('team')">👷 Team</button>
-            <button class="nav-tab" onclick="switchSection('tools')">🔧 Tools</button>
-            <button class="nav-tab" onclick="switchSection('finances')">💰 Finances</button>
-            <button class="nav-tab" onclick="switchSection('activity')">📊 Activity</button>
-            <button class="nav-tab" onclick="switchSection('calendar')">📅 Calendar</button>
-            <button class="nav-tab" onclick="switchSection('modules')">💬 Chat</button>
-            <button class="nav-tab" onclick="switchSection('admin')">⚙️ Admin</button>
+            <button class="nav-tab active" onclick="switchSection('projects')"><span class="tab-icon">📁</span> Projects</button>
+            <button class="nav-tab" onclick="switchSection('clients')"><span class="tab-icon">👥</span> Clients</button>
+            <button class="nav-tab" onclick="switchSection('team')"><span class="tab-icon">👷</span> Team</button>
+            <button class="nav-tab" onclick="switchSection('tools')"><span class="tab-icon">🔧</span> Tools</button>
+            <button class="nav-tab" onclick="switchSection('finances')"><span class="tab-icon">💰</span> Finances</button>
+            <button class="nav-tab" onclick="switchSection('activity')"><span class="tab-icon">📊</span> Activity</button>
+            <button class="nav-tab" onclick="switchSection('calendar')"><span class="tab-icon">📅</span> Calendar</button>
+            <button class="nav-tab" onclick="switchSection('modules')"><span class="tab-icon">💬</span> Chat</button>
+            <button class="nav-tab" onclick="switchSection('admin')"><span class="tab-icon">⚙️</span> Admin</button>
         </nav>
 
         <div class="connection-status">
@@ -2043,6 +2062,16 @@
 
                     <div class="settings-group">
                         <h4>Interface Settings</h4>
+                        <div class="form-group">
+                            <label class="form-label">Tab Icon Style</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="colorIconsToggle" onchange="toggleIconStyle()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <small style="color: var(--text-tertiary); display: block; margin-top: 8px;">
+                                Off: Monochrome icons (grayscale) • On: Color icons
+                            </small>
+                        </div>
                         <div class="slider-group">
                             <span class="slider-label">Border Radius</span>
                             <input type="range" class="slider" id="borderRadius" min="0" max="20" value="12" onchange="updateStyles()">
@@ -2811,6 +2840,7 @@
             }
 
             applySettings();
+            loadIconStyle(); // Load saved icon style preference
             renderProjects();
             renderTeamTables();
             renderTemplateStructure();
@@ -7528,6 +7558,34 @@
             saveState();
         }
 
+        function toggleIconStyle() {
+            const toggle = document.getElementById('colorIconsToggle');
+            const isColorIcons = toggle.checked;
+
+            if (isColorIcons) {
+                document.body.classList.add('color-icons');
+                localStorage.setItem('pm_hub_icon_style', 'color');
+                console.log('✅ Switched to color icons');
+            } else {
+                document.body.classList.remove('color-icons');
+                localStorage.setItem('pm_hub_icon_style', 'monochrome');
+                console.log('✅ Switched to monochrome icons');
+            }
+        }
+
+        function loadIconStyle() {
+            const savedStyle = localStorage.getItem('pm_hub_icon_style');
+            const toggle = document.getElementById('colorIconsToggle');
+
+            if (savedStyle === 'color') {
+                document.body.classList.add('color-icons');
+                if (toggle) toggle.checked = true;
+            } else {
+                document.body.classList.remove('color-icons');
+                if (toggle) toggle.checked = false;
+            }
+        }
+
         function saveSettings() {
             saveState();
             showAlert('Settings saved!', 'success');
@@ -8320,13 +8378,17 @@
         let currentCommTask = null;
 
         function loadCommProjects() {
+            console.log('📂 Loading communication projects...');
             const select = document.getElementById('comm-project-select');
             select.innerHTML = '<option value="">-- Choose Project --</option>';
 
             if (state.projects && state.projects.length > 0) {
+                console.log('✅ Found', state.projects.length, 'projects');
                 state.projects.forEach(project => {
                     select.innerHTML += `<option value="${project.id}">${project.code} - ${project.name}</option>`;
                 });
+            } else {
+                console.warn('⚠️ No projects found in state');
             }
 
             // Reset dependent selects
@@ -8369,10 +8431,13 @@
             const areaId = document.getElementById('comm-area-select').value;
             const taskSelect = document.getElementById('comm-task-select');
 
+            console.log('📋 Loading tasks for area:', areaId);
+
             taskSelect.innerHTML = '<option value="">-- Choose Task --</option>';
 
             if (!projectId || !areaId) {
                 taskSelect.disabled = true;
+                console.log('❌ No project or area selected');
                 return;
             }
 
@@ -8380,17 +8445,22 @@
             if (project) {
                 const area = project.areas.find(a => a.id == areaId);
                 if (area && area.tasks && area.tasks.length > 0) {
+                    console.log('✅ Found', area.tasks.length, 'tasks in area');
                     taskSelect.disabled = false;
                     area.tasks.forEach(task => {
+                        console.log('  - Task:', task.wbs, task.name, 'Completed:', task.completed);
                         const unreadCount = task.conversation?.messages?.filter(msg =>
-                            !msg.readBy?.includes(state.currentUser.id)
+                            !msg.readBy?.includes(state.currentUser?.id)
                         ).length || 0;
                         const badge = unreadCount > 0 ? ` (${unreadCount} new)` : '';
                         taskSelect.innerHTML += `<option value="${task.wbs}">${task.wbs} - ${task.name}${badge}</option>`;
                     });
                 } else {
+                    console.warn('⚠️ No tasks found in area or area not found');
                     taskSelect.disabled = true;
                 }
+            } else {
+                console.error('❌ Project not found:', projectId);
             }
 
             document.getElementById('comm-chat-container').style.display = 'none';
@@ -8452,10 +8522,17 @@
             const chatContainer = document.getElementById('comm-chat-container');
             const emptyState = document.getElementById('comm-empty-state');
 
+            if (!chatContainer || !emptyState) {
+                console.error('❌ Chat elements not found!', { chatContainer, emptyState });
+                return;
+            }
+
             chatContainer.style.display = 'block';
             emptyState.style.display = 'none';
 
             console.log('🎨 Chat container shown');
+            console.log('   - Container display:', chatContainer.style.display);
+            console.log('   - Empty state display:', emptyState.style.display);
 
             // Render messages
             renderCommMessages();
