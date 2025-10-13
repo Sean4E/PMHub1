@@ -776,6 +776,124 @@
         </div>
     </div>
 
+    <!-- Edit Task Modal -->
+    <div id="edit-task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Task</h3>
+                <button class="close-btn" onclick="closeModal('edit-task-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Task Name</label>
+                <input type="text" id="edit-task-name" placeholder="e.g., Paint walls">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign To</label>
+                <select id="edit-task-assignee">
+                    <option value="">-- Select Worker --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select id="edit-task-priority">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="updateTask()">
+                ✅ Update Task
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit Area Modal -->
+    <div id="edit-area-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Area</h3>
+                <button class="close-btn" onclick="closeModal('edit-area-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Area Name</label>
+                <input type="text" id="edit-area-name" placeholder="e.g., Kitchen, Lobby">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Billable</label>
+                <select id="edit-area-billable">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="updateArea()">
+                ✅ Update Area
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit Tool Modal -->
+    <div id="edit-tool-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Tool</h3>
+                <button class="close-btn" onclick="closeModal('edit-tool-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Tool Name</label>
+                <input type="text" id="edit-tool-name" placeholder="e.g., Impact Drill">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Serial Number</label>
+                <input type="text" id="edit-tool-serial" placeholder="e.g., SN-12345">
+            </div>
+
+            <button class="big-btn success" onclick="updateTool()">
+                ✅ Update Tool
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit User</h3>
+                <button class="close-btn" onclick="closeModal('edit-user-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="edit-user-name" placeholder="e.g., John Smith">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">PIN (4 digits)</label>
+                <input type="number" id="edit-user-pin" placeholder="e.g., 1234" maxlength="4">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Access Level</label>
+                <select id="edit-user-access">
+                    <option value="Worker">Worker</option>
+                    <option value="Manager">Manager</option>
+                </select>
+            </div>
+
+            <button class="big-btn success" onclick="updateUser()">
+                ✅ Update User
+            </button>
+        </div>
+    </div>
+
     <script>
         // ===== GOOGLE DRIVE & APIS CONFIGURATION =====
         const CLIENT_ID = '904576712649-mcrh6cl8ei84gktkfg2f36eqc8454k1q.apps.googleusercontent.com';
@@ -795,6 +913,13 @@
         let currentTask = null;
         let clockedInTime = null;
         let currentMode = 'work'; // 'work' or 'manage'
+
+        // Edit state tracking
+        let editingTaskAreaId = null;
+        let editingTaskWbs = null;
+        let editingAreaId = null;
+        let editingToolId = null;
+        let editingUserId = null;
 
         // BroadcastChannel for instant state sync with hub
         const stateChannel = new BroadcastChannel('pm_hub_state');
@@ -1294,6 +1419,7 @@
                                 </div>
                             </div>
                             <div class="item-actions">
+                                <button class="btn-sm btn-edit" onclick="editArea('${area.id}')">Edit</button>
                                 <button class="btn-sm btn-delete" onclick="deleteArea('${area.id}')">Delete</button>
                             </div>
                         </div>
@@ -1390,7 +1516,13 @@
                 allTasks.forEach(task => {
                     const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
                     const statusBadge = task.completed ? '✅ Done' : task.status === 'progress' ? '🔄 In Progress' : '⏳ Pending';
-                    const assigneeName = allUsers.find(u => u.id == task.assignee)?.name || 'Unassigned';
+
+                    // Fix assignee lookup with proper type handling
+                    let assigneeName = 'Unassigned';
+                    if (task.assignee) {
+                        const assignedUser = allUsers.find(u => String(u.id) === String(task.assignee));
+                        assigneeName = assignedUser ? assignedUser.name : 'Unassigned';
+                    }
 
                     html += `
                         <div class="list-item">
@@ -1401,6 +1533,7 @@
                                 </div>
                             </div>
                             <div class="item-actions">
+                                <button class="btn-sm btn-edit" onclick="editTask('${task.areaId}', '${task.wbs}')">Edit</button>
                                 <button class="btn-sm btn-delete" onclick="deleteTask('${task.areaId}', '${task.wbs}')">Delete</button>
                             </div>
                         </div>
@@ -1493,6 +1626,7 @@
                                 </div>
                             </div>
                             <div class="item-actions">
+                                <button class="btn-sm btn-edit" onclick="editTool('${tool.id}')">Edit</button>
                                 <button class="btn-sm btn-delete" onclick="deleteTool('${tool.id}')">Delete</button>
                             </div>
                         </div>
@@ -1569,6 +1703,7 @@
                                 </div>
                             </div>
                             <div class="item-actions">
+                                <button class="btn-sm btn-edit" onclick="editUser('${user.id}')">Edit</button>
                                 <button class="btn-sm btn-delete" onclick="deleteUser('${user.id}')">Delete</button>
                             </div>
                         </div>
@@ -1623,6 +1758,197 @@
             await saveHubState('users');
             showManageUsers();
             showToast('User deleted', 'success');
+        }
+
+        // ===== EDIT FUNCTIONS =====
+        function editTask(areaId, taskWbs) {
+            const area = managementProject.areas.find(a => a.id == areaId);
+            if (!area) return;
+
+            const task = area.tasks.find(t => t.wbs == taskWbs);
+            if (!task) return;
+
+            // Store editing context
+            editingTaskAreaId = areaId;
+            editingTaskWbs = taskWbs;
+
+            // Populate edit form
+            document.getElementById('edit-task-name').value = task.name;
+            document.getElementById('edit-task-priority').value = task.priority;
+
+            // Populate assignee selector
+            const assigneeSelect = document.getElementById('edit-task-assignee');
+            assigneeSelect.innerHTML = '<option value="">-- Select Worker --</option>';
+
+            const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
+            allUsers.forEach(user => {
+                const selected = String(user.id) === String(task.assignee) ? 'selected' : '';
+                assigneeSelect.innerHTML += `<option value="${user.id}" ${selected}>${user.name}</option>`;
+            });
+
+            openModal('edit-task-modal');
+        }
+
+        async function updateTask() {
+            if (!editingTaskAreaId || !editingTaskWbs) return;
+
+            const area = managementProject.areas.find(a => a.id == editingTaskAreaId);
+            if (!area) return;
+
+            const task = area.tasks.find(t => t.wbs == editingTaskWbs);
+            if (!task) return;
+
+            const name = document.getElementById('edit-task-name').value.trim();
+            const assignee = document.getElementById('edit-task-assignee').value;
+            const priority = document.getElementById('edit-task-priority').value;
+
+            if (!name) {
+                alert('Please enter task name');
+                return;
+            }
+
+            task.name = name;
+            task.assignee = assignee;
+            task.priority = priority;
+
+            logActivity('TASK_UPDATED', `Updated task: ${name}`);
+            await saveHubState('projects');
+
+            editingTaskAreaId = null;
+            editingTaskWbs = null;
+
+            closeModal('edit-task-modal');
+            showManageTasks();
+            showToast('Task updated!', 'success');
+        }
+
+        function editArea(areaId) {
+            const area = managementProject.areas.find(a => a.id == areaId);
+            if (!area) return;
+
+            editingAreaId = areaId;
+
+            document.getElementById('edit-area-name').value = area.name;
+            document.getElementById('edit-area-billable').value = area.billable ? 'true' : 'false';
+
+            openModal('edit-area-modal');
+        }
+
+        async function updateArea() {
+            if (!editingAreaId) return;
+
+            const area = managementProject.areas.find(a => a.id == editingAreaId);
+            if (!area) return;
+
+            const name = document.getElementById('edit-area-name').value.trim();
+            const billable = document.getElementById('edit-area-billable').value === 'true';
+
+            if (!name) {
+                alert('Please enter area name');
+                return;
+            }
+
+            area.name = name;
+            area.billable = billable;
+
+            logActivity('AREA_UPDATED', `Updated area: ${name}`);
+            await saveHubState('projects');
+
+            editingAreaId = null;
+
+            closeModal('edit-area-modal');
+            showManageAreas();
+            showToast('Area updated!', 'success');
+        }
+
+        function editTool(toolId) {
+            const tool = hubState.tools.find(t => t.id == toolId);
+            if (!tool) return;
+
+            editingToolId = toolId;
+
+            document.getElementById('edit-tool-name').value = tool.name;
+            document.getElementById('edit-tool-serial').value = tool.serial;
+
+            openModal('edit-tool-modal');
+        }
+
+        async function updateTool() {
+            if (!editingToolId) return;
+
+            const tool = hubState.tools.find(t => t.id == editingToolId);
+            if (!tool) return;
+
+            const name = document.getElementById('edit-tool-name').value.trim();
+            const serial = document.getElementById('edit-tool-serial').value.trim();
+
+            if (!name || !serial) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            tool.name = name;
+            tool.serial = serial;
+
+            logActivity('TOOL_UPDATED', `Updated tool: ${name}`);
+            await saveHubState('tools');
+
+            editingToolId = null;
+
+            closeModal('edit-tool-modal');
+            showManageTools();
+            showToast('Tool updated!', 'success');
+        }
+
+        function editUser(userId) {
+            const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
+            const user = allUsers.find(u => u.id == userId);
+            if (!user) return;
+
+            editingUserId = userId;
+
+            document.getElementById('edit-user-name').value = user.name;
+            document.getElementById('edit-user-pin').value = user.pin;
+            document.getElementById('edit-user-access').value = user.accessLevel;
+
+            openModal('edit-user-modal');
+        }
+
+        async function updateUser() {
+            if (!editingUserId) return;
+
+            let user = hubState.ourTeam?.find(u => u.id == editingUserId);
+            if (!user) {
+                user = hubState.clientTeam?.find(u => u.id == editingUserId);
+            }
+            if (!user) return;
+
+            const name = document.getElementById('edit-user-name').value.trim();
+            const pin = document.getElementById('edit-user-pin').value.trim();
+            const accessLevel = document.getElementById('edit-user-access').value;
+
+            if (!name || !pin) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            if (pin.length !== 4) {
+                alert('PIN must be 4 digits');
+                return;
+            }
+
+            user.name = name;
+            user.pin = pin;
+            user.accessLevel = accessLevel;
+
+            logActivity('USER_UPDATED', `Updated user: ${name}`);
+            await saveHubState('users');
+
+            editingUserId = null;
+
+            closeModal('edit-user-modal');
+            showManageUsers();
+            showToast('User updated!', 'success');
         }
 
         // ===== UTILITY FUNCTIONS =====
