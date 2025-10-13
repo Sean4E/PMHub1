@@ -1036,14 +1036,24 @@
                 }
             }
 
+            // Get latest activity for notification
+            const lastActivity = hubState.activities?.[hubState.activities.length - 1];
+
             // Broadcast state change to hub for instant sync (fallback)
             stateChannel.postMessage({
                 type: 'STATE_UPDATED',
                 section: section,
                 timestamp: Date.now(),
-                source: 'worker'
+                source: 'worker',
+                syncedBy: currentUser ? currentUser.name : 'worker',
+                activity: lastActivity
             });
             console.log('📡 Worker: Broadcasted state change -', section);
+
+            // Also broadcast via realtime module for enhanced notifications
+            if (window.pmRealtime && lastActivity) {
+                window.pmRealtime.broadcast(section, lastActivity);
+            }
 
             // Update indicators after sync
             updateSyncStatus('synced');
@@ -2351,6 +2361,39 @@ End of Report
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-realtime.js"></script>
+    <script>
+        // Initialize real-time sync after page load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (currentUser && window.PMHubRealtimeSync) {
+                    window.pmRealtime = new PMHubRealtimeSync({
+                        appName: 'Worker',
+                        currentUser: currentUser,
+                        onStateUpdate: (newState, update) => {
+                            // Update local state
+                            hubState = newState;
+
+                            // If on task selection screen, refresh tasks
+                            if (selectedProject) {
+                                selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                                const taskScreen = document.getElementById('task-selection-screen');
+                                if (taskScreen && !taskScreen.classList.contains('hidden')) {
+                                    const currentAreaId = document.getElementById('area-select')?.value;
+                                    if (currentAreaId) {
+                                        loadTasksForArea();
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✓ Worker: Real-time sync initialized');
+                }
+            }, 1000); // Wait for init() to complete
+        });
     </script>
 </body>
 </html>

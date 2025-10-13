@@ -940,13 +940,23 @@
                 }
             }
 
+            // Get latest activity for notification
+            const lastActivity = hubState.activities?.[hubState.activities.length - 1];
+
             // Broadcast state change
             stateChannel.postMessage({
                 type: 'STATE_UPDATED',
                 section: section,
                 timestamp: Date.now(),
-                source: 'manager'
+                source: 'manager',
+                syncedBy: currentUser ? currentUser.name : 'manager',
+                activity: lastActivity
             });
+
+            // Also broadcast via realtime module for enhanced notifications
+            if (window.pmRealtime && lastActivity) {
+                window.pmRealtime.broadcast(section, lastActivity);
+            }
         }
 
         // ===== GOOGLE DRIVE INTEGRATION =====
@@ -1666,6 +1676,36 @@
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-realtime.js"></script>
+    <script>
+        // Initialize real-time sync after page load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (currentUser && window.PMHubRealtimeSync) {
+                    window.pmRealtime = new PMHubRealtimeSync({
+                        appName: 'Manager',
+                        currentUser: currentUser,
+                        onStateUpdate: (newState, update) => {
+                            // Update local state
+                            hubState = newState;
+
+                            // Refresh current views
+                            if (currentMode === 'work' && selectedProject) {
+                                selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                            } else if (currentMode === 'manage' && managementProject) {
+                                managementProject = hubState.projects?.find(p => p.id == managementProject.id);
+                                // Refresh the current management view if it's open
+                                loadManagementProject();
+                            }
+                        }
+                    });
+                    console.log('✓ Manager: Real-time sync initialized');
+                }
+            }, 1000); // Wait for init() to complete
+        });
     </script>
 </body>
 </html>

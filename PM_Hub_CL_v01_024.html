@@ -8635,11 +8635,24 @@
 
         // Broadcast state changes to other tabs/windows
         function broadcastStateChange(section = 'general') {
+            // Get latest activity for notification
+            const lastActivity = state.activities?.[state.activities.length - 1];
+            const currentUserStr = localStorage.getItem('pm_hub_current_user');
+            const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+
             stateChannel.postMessage({
                 type: 'STATE_UPDATED',
                 section: section,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                source: 'admin',
+                syncedBy: currentUser ? currentUser.name : 'admin',
+                activity: lastActivity
             });
+
+            // Also broadcast via realtime module for enhanced notifications
+            if (window.pmRealtime && lastActivity) {
+                window.pmRealtime.broadcast(section, lastActivity);
+            }
         }
 
         // ===== ACTIVITY FEED MANUAL REFRESH =====
@@ -8670,5 +8683,44 @@
     <!-- Load Google APIs -->
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-realtime.js"></script>
+    <script>
+        // Initialize real-time sync after page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const currentUserStr = localStorage.getItem('pm_hub_current_user');
+                if (currentUserStr && window.PMHubRealtimeSync) {
+                    const currentUser = JSON.parse(currentUserStr);
+                    window.pmRealtime = new PMHubRealtimeSync({
+                        appName: 'Admin',
+                        currentUser: currentUser,
+                        onStateUpdate: (newState, update) => {
+                            // Update local state
+                            state = newState;
+
+                            // Refresh relevant views based on what changed
+                            if (update.section === 'projects') {
+                                renderProjects();
+                                updateDashboard();
+                            } else if (update.section === 'team' || update.section === 'users') {
+                                renderTeamTables();
+                            } else if (update.section === 'tools') {
+                                // Refresh tools if that section exists
+                            } else {
+                                // General refresh
+                                updateDashboard();
+                            }
+
+                            // Always refresh activity feed
+                            renderActivityFeed();
+                        }
+                    });
+                    console.log('✓ Admin Hub: Real-time sync initialized');
+                }
+            }, 2000); // Wait for full page load
+        });
+    </script>
 </body>
 </html>
