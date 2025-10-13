@@ -305,8 +305,22 @@
         }
 
         .management-icon {
-            font-size: 40px;
-            margin-bottom: 8px;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .management-icon svg {
+            width: 100%;
+            height: 100%;
+            stroke: var(--text-primary);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .management-title {
@@ -564,22 +578,43 @@
             <!-- Quick Management Actions -->
             <div class="management-grid">
                 <div class="management-card" onclick="showManageAreas()">
-                    <div class="management-icon">📍</div>
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
                     <div class="management-title">Areas</div>
                 </div>
 
                 <div class="management-card" onclick="showManageTasks()">
-                    <div class="management-icon">📋</div>
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M9 11l3 3L22 4"></path>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                    </div>
                     <div class="management-title">Tasks</div>
                 </div>
 
                 <div class="management-card" onclick="showManageTools()">
-                    <div class="management-icon">🔧</div>
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                    </div>
                     <div class="management-title">Tools</div>
                 </div>
 
                 <div class="management-card" onclick="showManageUsers()">
-                    <div class="management-icon">👥</div>
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
                     <div class="management-title">Users</div>
                 </div>
             </div>
