@@ -1785,7 +1785,11 @@
 
             area.tasks.push(newTask);
 
-            logActivity('TASK_CREATED', `Created task: ${name}`);
+            logActivity('TASK_CREATED', `Created task: ${name}`, {
+                assignee: assignee,
+                priority: priority,
+                taskName: name
+            });
             await saveHubState('projects');
 
             closeModal('add-task-modal');
@@ -2019,7 +2023,11 @@
             task.assignee = assignee;
             task.priority = priority;
 
-            logActivity('TASK_UPDATED', `Updated task: ${name}`);
+            logActivity('TASK_UPDATED', `Updated task: ${name}`, {
+                assignee: assignee,
+                priority: priority,
+                taskName: name
+            });
             await saveHubState('projects');
 
             editingTaskAreaId = null;
