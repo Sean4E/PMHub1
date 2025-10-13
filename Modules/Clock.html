@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM Hub - Time Clock</title>
+    <link rel="stylesheet" href="../pm-hub-styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0e27;
+            --bg-secondary: #151932;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a8b2d1;
+            --text-tertiary: #64748b;
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-secondary) 50%, var(--bg-dark) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .clock-display {
+            font-size: 48px;
+            font-weight: 300;
+            text-align: center;
+            margin: 20px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .date-display {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        /* PIN Entry */
+        .pin-entry {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .pin-display {
+            font-size: 36px;
+            letter-spacing: 15px;
+            font-family: monospace;
+            margin-bottom: 30px;
+            min-height: 50px;
+        }
+
+        .pin-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .pin-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 25px;
+            font-size: 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pin-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.05);
+        }
+
+        .pin-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Worker Dashboard */
+        .worker-info {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .worker-name {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .worker-status {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-in {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+        }
+
+        .status-out {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+        }
+
+        .status-break {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+        }
+
+        /* Action Buttons */
+        .action-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .action-btn {
+            padding: 20px;
+            font-size: 20px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-clock-in {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            color: white;
+        }
+
+        .btn-clock-out {
+            background: linear-gradient(135deg, var(--accent-danger), #dc2626);
+            color: white;
+        }
+
+        .btn-break {
+            background: linear-gradient(135deg, var(--accent-warning), #d97706);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+        }
+
+        /* Task Selection */
+        .task-select {
+            margin-bottom: 20px;
+        }
+
+        .task-select label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .task-select select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(21, 25, 50, 0.8);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        /* Time Summary */
+        .time-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .summary-card {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Activity Log */
+        .activity-log {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 10px;
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-time {
+            color: var(--text-tertiary);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-color: var(--accent-success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .notification.error {
+            border-color: var(--accent-danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .clock-display {
+                font-size: 36px;
+            }
+            
+            .pin-btn {
+                padding: 20px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Clock Display -->
+        <div class="glass-panel">
+            <h1>PM Hub Time Clock</h1>
+            <div class="clock-display" id="clock">00:00:00</div>
+            <div class="date-display" id="date">Loading...</div>
+        </div>
+
+        <!-- PIN Entry Screen -->
+        <div id="pinScreen" class="glass-panel">
+            <div class="pin-entry">
+                <h2>Enter Your PIN</h2>
+                <div class="pin-display" id="pinDisplay">····</div>
+                <div class="pin-pad">
+                    <button class="pin-btn" onclick="addPin('1')">1</button>
+                    <button class="pin-btn" onclick="addPin('2')">2</button>
+                    <button class="pin-btn" onclick="addPin('3')">3</button>
+                    <button class="pin-btn" onclick="addPin('4')">4</button>
+                    <button class="pin-btn" onclick="addPin('5')">5</button>
+                    <button class="pin-btn" onclick="addPin('6')">6</button>
+                    <button class="pin-btn" onclick="addPin('7')">7</button>
+                    <button class="pin-btn" onclick="addPin('8')">8</button>
+                    <button class="pin-btn" onclick="addPin('9')">9</button>
+                    <button class="pin-btn" onclick="clearPin()">C</button>
+                    <button class="pin-btn" onclick="addPin('0')">0</button>
+                    <button class="pin-btn" onclick="submitPin()">✓</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Worker Dashboard -->
+        <div id="workerScreen" class="glass-panel" style="display: none;">
+            <div class="worker-info">
+                <div class="worker-name" id="workerName">John Smith</div>
+                <span class="worker-status status-out" id="workerStatus">Clocked Out</span>
+            </div>
+
+            <!-- Task Selection -->
+            <div class="task-select">
+                <label>Select Project/Task:</label>
+                <select id="projectSelect" onchange="loadTasks()">
+                    <option value="">-- Select Project --</option>
+                </select>
+                <select id="taskSelect" style="margin-top: 10px; display: none;">
+                    <option value="">-- Select Task --</option>
+                </select>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-grid">
+                <button class="action-btn btn-clock-in" id="btnClockIn" onclick="clockIn()">
+                    <span>🕐</span> Clock In
+                </button>
+                <button class="action-btn btn-break" id="btnBreak" onclick="toggleBreak()" style="display: none;">
+                    <span>☕</span> Start Break
+                </button>
+                <button class="action-btn btn-clock-out" id="btnClockOut" onclick="clockOut()" style="display: none;">
+                    <span>🏠</span> Clock Out
+                </button>
+            </div>
+
+            <!-- Time Summary -->
+            <div class="time-summary">
+                <div class="summary-card">
+                    <div class="summary-value" id="todayHours">0.0</div>
+                    <div class="summary-label">Hours Today</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="weekHours">0.0</div>
+                    <div class="summary-label">Hours This Week</div>
+                </div>
+            </div>
+
+            <!-- Today's Activity -->
+            <h3 style="margin-top: 30px; margin-bottom: 15px;">Today's Activity</h3>
+            <div class="activity-log" id="activityLog">
+                <div class="log-entry">
+                    <span>No activity yet today</span>
+                </div>
+            </div>
+
+            <!-- Sign Out -->
+            <button class="action-btn btn-secondary" onclick="signOut()" style="margin-top: 20px;">
+                Sign Out
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let currentWorker = null;
+        let currentStatus = null;
+        let currentPin = '';
+        let clockInterval = null;
+        let currentProject = null;
+        let currentTask = null;
+
+        // Data Storage Keys
+        const STORAGE_PREFIX = 'pmhub_clock_';
+        const HUB_DATA_KEY = 'pmHubState'; // From 017
+
+        // Initialize
+        function init() {
+            startClock();
+            updateDate();
+            loadProjects();
+            
+            // Check if already signed in
+            const savedWorker = localStorage.getItem(STORAGE_PREFIX + 'current_worker');
+            if (savedWorker) {
+                currentWorker = JSON.parse(savedWorker);
+                showWorkerScreen();
+            }
+        }
+
+        // Clock Functions
+        function startClock() {
+            updateClock();
+            clockInterval = setInterval(updateClock, 1000);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('date').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // PIN Entry Functions
+        function addPin(digit) {
+            if (currentPin.length < 4) {
+                currentPin += digit;
+                updatePinDisplay();
+                
+                // Auto-submit at 4 digits
+                if (currentPin.length === 4) {
+                    setTimeout(submitPin, 200);
+                }
+            }
+        }
+
+        function clearPin() {
+            currentPin = '';
+            updatePinDisplay();
+        }
+
+        function updatePinDisplay() {
+            const display = document.getElementById('pinDisplay');
+            if (currentPin.length === 0) {
+                display.textContent = '····';
+            } else {
+                display.textContent = '●'.repeat(currentPin.length) + '·'.repeat(4 - currentPin.length);
+            }
+        }
+
+        async function submitPin() {
+            if (currentPin.length !== 4) {
+                showNotification('Please enter a 4-digit PIN', 'error');
+                return;
+            }
+
+            // Get team data from hub storage
+            const hubData = getHubData();
+            if (!hubData) {
+                showNotification('Cannot connect to hub data', 'error');
+                return;
+            }
+
+            // Check both team types for PIN
+            let worker = null;
+            if (hubData.ourTeam) {
+                worker = hubData.ourTeam.find(m => m.pin === currentPin);
+            }
+            if (!worker && hubData.clientTeam) {
+                worker = hubData.clientTeam.find(m => m.pin === currentPin);
+            }
+
+            if (worker) {
+                currentWorker = worker;
+                localStorage.setItem(STORAGE_PREFIX + 'current_worker', JSON.stringify(worker));
+                showWorkerScreen();
+                showNotification(`Welcome, ${worker.name}!`, 'success');
+            } else {
+                showNotification('Invalid PIN', 'error');
+                currentPin = '';
+                updatePinDisplay();
+            }
+        }
+
+        // Get Hub Data
+        function getHubData() {
+            const data = localStorage.getItem(HUB_DATA_KEY);
+            if (data) {
+                try {
+                    return JSON.parse(data);
+                } catch (e) {
+                    console.error('Failed to parse hub data:', e);
+                }
+            }
+            return null;
+        }
+
+        // Worker Screen Functions
+        function showWorkerScreen() {
+            document.getElementById('pinScreen').style.display = 'none';
+            document.getElementById('workerScreen').style.display = 'block';
+            
+            // Update worker info
+            document.getElementById('workerName').textContent = currentWorker.name;
+            
+            // Load worker status
+            loadWorkerStatus();
+            loadProjects();
+            loadTodayActivity();
+            updateSummary();
+        }
+
+        function loadWorkerStatus() {
+            const statusKey = STORAGE_PREFIX + 'status_' + currentWorker.id;
+            const status = localStorage.getItem(statusKey);
+            
+            if (status) {
+                currentStatus = JSON.parse(status);
+                updateStatusDisplay();
+            } else {
+                currentStatus = { status: 'out', lastAction: null };
+                updateStatusDisplay();
+            }
+        }
+
+        function updateStatusDisplay() {
+            const statusEl = document.getElementById('workerStatus');
+            const clockInBtn = document.getElementById('btnClockIn');
+            const breakBtn = document.getElementById('btnBreak');
+            const clockOutBtn = document.getElementById('btnClockOut');
+            
+            switch(currentStatus.status) {
+                case 'in':
+                    statusEl.textContent = 'Clocked In';
+                    statusEl.className = 'worker-status status-in';
+                    clockInBtn.style.display = 'none';
+                    breakBtn.style.display = 'block';
+                    clockOutBtn.style.display = 'block';
+                    breakBtn.innerHTML = '<span>☕</span> Start Break';
+                    break;
+                case 'break':
+                    statusEl.textContent = 'On Break';
+                    statusEl.className = 'worker-status status-break';
+                    clockInBtn.style.display = 'none';
+                    breakBtn.style.display = 'block';
+                    clockOutBtn.style.display = 'block';
+                    breakBtn.innerHTML = '<span>▶️</span> End Break';
+                    break;
+                default:
+                    statusEl.textContent = 'Clocked Out';
+                    statusEl.className = 'worker-status status-out';
+                    clockInBtn.style.display = 'block';
+                    breakBtn.style.display = 'none';
+                    clockOutBtn.style.display = 'none';
+            }
+        }
+
+        // Load Projects from Hub
+        function loadProjects() {
+            const hubData = getHubData();
+            if (!hubData || !hubData.projects) return;
+            
+            const select = document.getElementById('projectSelect');
+            select.innerHTML = '<option value="">-- Select Project --</option>';
+            
+            hubData.projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = `${project.code} - ${project.name}`;
+                select.appendChild(option);
+            });
+        }
+
+        function loadTasks() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                document.getElementById('taskSelect').style.display = 'none';
+                return;
+            }
+            
+            const hubData = getHubData();
+            const project = hubData.projects.find(p => p.id == projectId);
+            if (!project) return;
+            
+            currentProject = project;
+            const taskSelect = document.getElementById('taskSelect');
+            taskSelect.innerHTML = '<option value="">-- General --</option>';
+            
+            // Load areas and tasks
+            if (project.areas) {
+                project.areas.forEach(area => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = area.name;
+                    
+                    if (area.tasks && area.tasks.length > 0) {
+                        flattenTasks(area.tasks, '').forEach(task => {
+                            const option = document.createElement('option');
+                            option.value = `${area.id}_${task.wbs}`;
+                            option.textContent = `${task.wbs} - ${task.name}`;
+                            optgroup.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = area.id;
+                        option.textContent = area.name;
+                        optgroup.appendChild(option);
+                    }
+                    
+                    taskSelect.appendChild(optgroup);
+                });
+            }
+            
+            taskSelect.style.display = 'block';
+        }
+
+        function flattenTasks(tasks, parentWbs) {
+            let flat = [];
+            tasks.forEach((task, index) => {
+                const wbs = parentWbs ? `${parentWbs}.${index + 1}` : `${index + 1}`;
+                flat.push({
+                    ...task,
+                    wbs: wbs
+                });
+                if (task.children && task.children.length > 0) {
+                    flat = flat.concat(flattenTasks(task.children, wbs));
+                }
+            });
+            return flat;
+        }
+
+        // Clock Actions
+        async function clockIn() {
+            const projectId = document.getElementById('projectSelect').value;
+            if (!projectId) {
+                showNotification('Please select a project', 'error');
+                return;
+            }
+            
+            const taskId = document.getElementById('taskSelect').value;
+            
+            const entry = {
+                type: 'clock-in',
+                workerId: currentWorker.id,
+                workerName: currentWorker.name,
+                projectId: projectId,
+                taskId: taskId,
+                timestamp: new Date().toISOString(),
+                location: await getLocation()
+            };
+            
+            // Save to time log
+            saveTimeEntry(entry);
+            
+            // Update status
+            currentStatus = {
+                status: 'in',
+                lastAction: entry.timestamp,
+                projectId: projectId,
+                taskId: taskId
+            };
+            saveWorkerStatus();
+            updateStatusDisplay();
+            
+            showNotification('Clocked in successfully', 'success');
+            loadTodayActivity();
+            updateSummary();
+        }
+
+        async function clockOut() {
+            const entry = {
+                type: 'clock-out',
+                workerId: currentWorker.id,
+                workerName: currentWorker.name,
+                projectId: currentStatus.projectId,
+                taskId: currentStatus.taskId,
+                timestamp: new Date().toISOString(),
+                location: await getLocation()
+            };
+            
+            // Calculate hours worked
+            if (currentStatus.lastAction) {
+                const start = new Date(currentStatus.lastAction);
+                const end = new Date();
+                const hours = (end - start) / (1000 * 60 * 60);
+                entry.hoursWorked = Math.round(hours * 100) / 100;
+            }
+            
+            saveTimeEntry(entry);
+            
+            currentStatus = {
+                status: 'out',
+                lastAction: entry.timestamp
+            };
+            saveWorkerStatus();
+            updateStatusDisplay();
+            
+            showNotification('Clocked out successfully', 'success');
+            loadTodayActivity();
+            updateSummary();
+        }
+
+        async function toggleBreak() {
+            if (currentStatus.status === 'break') {
+                // End break
+                const entry = {
+                    type: 'break-end',
+                    workerId: currentWorker.id,
+                    workerName: currentWorker.name,
+                    timestamp: new Date().toISOString()
+                };
+                saveTimeEntry(entry);
+                
+                currentStatus.status = 'in';
+                showNotification('Break ended', 'success');
+            } else {
+                // Start break
+                const entry = {
+                    type: 'break-start',
+                    workerId: currentWorker.id,
+                    workerName: currentWorker.name,
+                    timestamp: new Date().toISOString()
+                };
+                saveTimeEntry(entry);
+                
+                currentStatus.status = 'break';
+                showNotification('Break started', 'success');
+            }
+            
+            saveWorkerStatus();
+            updateStatusDisplay();
+            loadTodayActivity();
+        }
+
+        // Data Storage
+        function saveTimeEntry(entry) {
+            const key = STORAGE_PREFIX + 'time_entries';
+            const entries = JSON.parse(localStorage.getItem(key) || '[]');
+            entries.push(entry);
+            localStorage.setItem(key, JSON.stringify(entries));
+            
+            // Also sync to hub if possible
+            syncToHub('time_entry', entry);
+        }
+
+        function saveWorkerStatus() {
+            const statusKey = STORAGE_PREFIX + 'status_' + currentWorker.id;
+            localStorage.setItem(statusKey, JSON.stringify(currentStatus));
+        }
+
+        function syncToHub(type, data) {
+            // Broadcast to hub if available
+            if (window.BroadcastChannel) {
+                const channel = new BroadcastChannel('pmhub');
+                channel.postMessage({
+                    event: `clock.${type}`,
+                    data: data
+                });
+            }
+            
+            // Also save to hub storage for offline sync
+            const hubSyncKey = STORAGE_PREFIX + 'hub_sync';
+            const syncQueue = JSON.parse(localStorage.getItem(hubSyncKey) || '[]');
+            syncQueue.push({ type, data, timestamp: new Date().toISOString() });
+            localStorage.setItem(hubSyncKey, JSON.stringify(syncQueue));
+        }
+
+        // Activity & Summary
+        function loadTodayActivity() {
+            const entries = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'time_entries') || '[]');
+            const today = new Date().toDateString();
+            
+            const todayEntries = entries.filter(e => {
+                return new Date(e.timestamp).toDateString() === today && 
+                       e.workerId === currentWorker.id;
+            });
+            
+            const logEl = document.getElementById('activityLog');
+            
+            if (todayEntries.length === 0) {
+                logEl.innerHTML = '<div class="log-entry"><span>No activity yet today</span></div>';
+                return;
+            }
+            
+            logEl.innerHTML = '';
+            todayEntries.reverse().forEach(entry => {
+                const time = new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                
+                let action = '';
+                switch(entry.type) {
+                    case 'clock-in': action = 'Clocked In'; break;
+                    case 'clock-out': action = 'Clocked Out'; break;
+                    case 'break-start': action = 'Started Break'; break;
+                    case 'break-end': action = 'Ended Break'; break;
+                }
+                
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.innerHTML = `
+                    <span>${action}</span>
+                    <span class="log-time">${time}</span>
+                `;
+                logEl.appendChild(logEntry);
+            });
+        }
+
+        function updateSummary() {
+            const entries = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'time_entries') || '[]');
+            const workerEntries = entries.filter(e => e.workerId === currentWorker.id);
+            
+            // Calculate today's hours
+            const today = new Date().toDateString();
+            let todayHours = 0;
+            
+            const todayClockIns = workerEntries.filter(e => 
+                e.type === 'clock-in' && new Date(e.timestamp).toDateString() === today
+            );
+            const todayClockOuts = workerEntries.filter(e => 
+                e.type === 'clock-out' && new Date(e.timestamp).toDateString() === today
+            );
+            
+            // Simple calculation - sum all clock-out hours
+            todayClockOuts.forEach(out => {
+                if (out.hoursWorked) {
+                    todayHours += out.hoursWorked;
+                }
+            });
+            
+            // If currently clocked in, add current session
+            if (currentStatus && currentStatus.status === 'in' && currentStatus.lastAction) {
+                const start = new Date(currentStatus.lastAction);
+                const now = new Date();
+                const currentHours = (now - start) / (1000 * 60 * 60);
+                todayHours += currentHours;
+            }
+            
+            // Calculate week hours
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            weekStart.setHours(0, 0, 0, 0);
+            
+            let weekHours = 0;
+            const weekOuts = workerEntries.filter(e => 
+                e.type === 'clock-out' && new Date(e.timestamp) >= weekStart
+            );
+            weekOuts.forEach(out => {
+                if (out.hoursWorked) {
+                    weekHours += out.hoursWorked;
+                }
+            });
+            
+            // Update display
+            document.getElementById('todayHours').textContent = todayHours.toFixed(1);
+            document.getElementById('weekHours').textContent = weekHours.toFixed(1);
+        }
+
+        // Location
+        async function getLocation() {
+            if (!navigator.geolocation) return null;
+            
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => resolve({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    }),
+                    () => resolve(null),
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            });
+        }
+
+        // Sign Out
+        function signOut() {
+            if (currentStatus && currentStatus.status === 'in') {
+                if (!confirm('You are still clocked in. Clock out before signing out?')) {
+                    return;
+                }
+                clockOut();
+            }
+            
+            currentWorker = null;
+            currentStatus = null;
+            currentPin = '';
+            
+            localStorage.removeItem(STORAGE_PREFIX + 'current_worker');
+            
+            document.getElementById('workerScreen').style.display = 'none';
+            document.getElementById('pinScreen').style.display = 'block';
+            
+            clearPin();
+        }
+
+        // Notifications
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

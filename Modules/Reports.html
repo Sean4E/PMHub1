@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Report Logger - Role-Based System</title>
+  <link rel="stylesheet" href="../pm-hub-styles.css">
+  <style>
+    :root {
+      --primary-color: rgba(76, 175, 80, 0.8);
+      --secondary-color: rgba(33, 150, 243, 0.8);
+      --accent-color: rgba(156, 39, 176, 0.8);
+      --dark-bg: rgba(18, 18, 18, 0.85);
+      --glass-bg: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.2);
+      --text-light: rgba(255, 255, 255, 0.9);
+      --text-muted: rgba(255, 255, 255, 0.7);
+      --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      color: var(--text-light);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      opacity: 0.8;
+    }
+
+    .card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 20px;
+      border: 1px solid var(--glass-border);
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: var(--shadow);
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+      color: var(--text-light);
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-light);
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    /* Improved dropdown contrast */
+    select option {
+      background: #2a2a2a;
+      color: var(--text-light);
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn i {
+      margin-right: 8px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--glass-border);
+    }
+
+    .btn-accent {
+      background: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+    }
+
+    .btn-small {
+      padding: 8px 15px;
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .preview-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    video, canvas {
+      width: 100%;
+      max-height: 420px;
+      border-radius: 8px;
+      background: #000;
+    }
+
+    #mediaPreview {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .capture-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      text-align: center;
+      display: none;
+    }
+
+    .success {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+    }
+
+    .error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.5);
+    }
+
+    .loading {
+      background: rgba(33, 150, 243, 0.2);
+      border: 1px solid rgba(33, 150, 243, 0.5);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .auth-section {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    #authStatus {
+      padding: 8px 15px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .login-section {
+      max-width: 400px;
+      margin: 50px auto;
+    }
+
+    .role-selector {
+      display: flex;
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .role-btn {
+      flex: 1;
+      padding: 15px;
+      text-align: center;
+      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .role-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .role-btn.active {
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      border-color: transparent;
+    }
+
+    .mode-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      border-radius: 10px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+      border-color: transparent;
+    }
+
+    .icon-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1.2rem;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.1);
+    }
+
+    .icon-btn.active {
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      border-color: transparent;
+    }
+
+    .user-ui {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .user-controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .admin-only {
+      display: none;
+    }
+
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 10px;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .card {
+        padding: 20px;
+      }
+      
+      .controls {
+        flex-direction: column;
+      }
+      
+      .role-selector, .mode-selector {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Section -->
+    <div id="loginSection" class="card login-section">
+      <h2>Report Logger</h2>
+      <p class="subtitle">Select your role to continue</p>
+      
+      <div class="form-group">
+        <label for="userName">Your Name</label>
+        <input type="text" id="userName" placeholder="Enter your name">
+      </div>
+      
+      <div class="role-selector">
+        <div class="role-btn" data-role="user">
+          <h3>👤 User</h3>
+          <p>Submit reports and media</p>
+        </div>
+        <div class="role-btn" data-role="admin">
+          <h3>⚙️ Admin</h3>
+          <p>Configure settings</p>
+        </div>
+      </div>
+      
+      <button id="loginBtn" class="btn" disabled>
+        <i>🔐</i> Continue
+      </button>
+    </div>
+
+    <!-- Main Application (Initially Hidden) -->
+    <div id="appSection" class="hidden">
+      <header>
+        <h1>Report Logger</h1>
+        <p class="subtitle" id="roleSubtitle">User Mode - Simple Reporting</p>
+        <div class="auth-section">
+          <button id="authorizeBtn" class="btn btn-small">
+            <i>🔐</i> Authorize Drive
+          </button>
+          <button id="signoutBtn" class="btn btn-secondary btn-small" disabled>
+            <i>🚪</i> Sign Out
+          </button>
+          <div id="authStatus">Not authorized</div>
+          <button id="logoutBtn" class="btn btn-secondary btn-small">
+            <i>🔓</i> Switch User
+          </button>
+        </div>
+      </header>
+
+      <!-- Admin Configuration Section -->
+      <div id="adminSection" class="card admin-only">
+        <h2>Admin Configuration</h2>
+        
+        <div class="form-group">
+          <label for="defaultFolder">Default Reports Folder</label>
+          <div class="controls">
+            <input type="text" id="defaultFolder" placeholder="Folder ID or name">
+            <button id="createFolderBtn" class="btn btn-accent">
+              <i>📁</i> Create New Folder
+            </button>
+          </div>
+          <small style="color: var(--text-muted);">Leave blank to use Drive root</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="userPermissions">User Permissions</label>
+          <select id="userPermissions">
+            <option value="both">Allow both reports and media</option>
+            <option value="reports">Reports only</option>
+            <option value="media">Media only</option>
+          </select>
+        </div>
+        
+        <button id="saveSettings" class="btn">
+          <i>💾</i> Save Settings
+        </button>
+      </div>
+
+      <!-- User Interface Section -->
+      <div id="userSection" class="card">
+        <h2>Create Report</h2>
+        
+        <!-- Mode Selector (User) -->
+        <div class="mode-selector">
+          <div class="mode-btn active" data-mode="report">
+            <i>📝</i> Text Report
+          </div>
+          <div class="mode-btn" data-mode="media">
+            <i>📷</i> Media Capture
+          </div>
+        </div>
+
+        <!-- Text Report Section -->
+        <div id="reportSection">
+          <div class="form-group">
+            <label for="reportTitle">Report Title</label>
+            <input type="text" id="reportTitle" placeholder="Enter a title for your report">
+          </div>
+          <div class="form-group">
+            <label for="reportDescription">Description</label>
+            <textarea id="reportDescription" placeholder="Provide details about the incident"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="reportPriority">Priority</label>
+            <select id="reportPriority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <button id="submitReport" class="btn">
+            <i>📋</i> Submit Report
+          </button>
+        </div>
+
+        <!-- Media Capture Section -->
+        <div id="mediaSection" class="hidden">
+          <div class="form-group">
+            <label for="mediaCaption">Media Caption</label>
+            <input type="text" id="mediaCaption" placeholder="Add a caption for your photo/video">
+          </div>
+          
+          <div class="user-controls">
+            <div class="icon-btn" id="startCamera" title="Start Camera">
+              📷
+            </div>
+            <div class="icon-btn" id="switchCamera" title="Switch Camera">
+              🔄
+            </div>
+            <div class="icon-btn" id="takePhoto" title="Take Photo" disabled>
+              📸
+            </div>
+            <div class="icon-btn" id="startRecording" title="Start Recording" disabled>
+              🎥
+            </div>
+            <div class="icon-btn hidden" id="stopRecording" title="Stop Recording">
+              ⏹️
+            </div>
+          </div>
+          
+          <div class="preview-container">
+            <video id="preview" autoplay playsinline class="hidden"></video>
+            <canvas id="photoCanvas" class="hidden"></canvas>
+            <img id="mediaPreview" alt="Captured media preview">
+          </div>
+          
+          <button id="uploadBtn" class="btn hidden" style="margin-top: 15px;">
+            <i>📤</i> Upload to Drive
+          </button>
+        </div>
+      </div>
+
+      <div id="statusMessage" class="status"></div>
+      
+      <div class="card">
+        <h2>Last Capture Info</h2>
+        <pre id="lastInfo">None</pre>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Report Logger &copy; 2023 | Secure Direct-to-Drive Reporting</p>
+  </footer>
+
+  <!-- Google Identity Services (token client) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    // ---------- CONFIGURE THESE ----------
+    const CLIENT_ID = '904576712649-mcrh6cl8ei84gktkfg2f36eqc8454k1q.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyBoEAEz1NnCJDQ221u4XxXZIBaQrN-nlAc';
+    // -------------------------------------
+
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+    // UI elements
+    const loginSection = document.getElementById('loginSection');
+    const appSection = document.getElementById('appSection');
+    const adminSection = document.getElementById('adminSection');
+    const userSection = document.getElementById('userSection');
+    const reportSection = document.getElementById('reportSection');
+    const mediaSection = document.getElementById('mediaSection');
+    const roleSubtitle = document.getElementById('roleSubtitle');
+    
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const authorizeBtn = document.getElementById('authorizeBtn');
+    const signoutBtn = document.getElementById('signoutBtn');
+    const authStatus = document.getElementById('authStatus');
+    const startCamera = document.getElementById('startCamera');
+    const switchCamera = document.getElementById('switchCamera');
+    const takePhoto = document.getElementById('takePhoto');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const submitReportBtn = document.getElementById('submitReport');
+    const preview = document.getElementById('preview');
+    const canvas = document.getElementById('photoCanvas');
+    const statusMessage = document.getElementById('statusMessage');
+    const lastInfo = document.getElementById('lastInfo');
+    const createFolderBtn = document.getElementById('createFolderBtn');
+    const saveSettings = document.getElementById('saveSettings');
+    
+    // video recording elements
+    const startRecordingBtn = document.getElementById('startRecording');
+    const stopRecordingBtn = document.getElementById('stopRecording');
+    const mediaPreview = document.getElementById('mediaPreview');
+
+    // Application state
+    let currentUser = null;
+    let currentRole = null;
+    let tokenClient;
+    let accessToken = null;
+    let stream = null;
+    let lastBlob = null;
+    let lastFilename = null;
+    let isFrontCamera = false;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let appSettings = {
+      defaultFolder: '',
+      userPermissions: 'both'
+    };
+
+    // Initialize role selection
+    document.querySelectorAll('.role-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loginBtn.disabled = false;
+      });
+    });
+
+    // Initialize mode selection
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode');
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        if (mode === 'report') {
+          reportSection.classList.remove('hidden');
+          mediaSection.classList.add('hidden');
+        } else {
+          reportSection.classList.add('hidden');
+          mediaSection.classList.remove('hidden');
+        }
+      });
+    });
+
+    // Login handler
+    loginBtn.addEventListener('click', () => {
+      const userName = document.getElementById('userName').value;
+      const selectedRole = document.querySelector('.role-btn.active').getAttribute('data-role');
+      
+      if (!userName) {
+        setStatus('Please enter your name', 'error');
+        return;
+      }
+      
+      currentUser = userName;
+      currentRole = selectedRole;
+      
+      // Update UI based on role
+      if (currentRole === 'admin') {
+        adminSection.classList.remove('admin-only');
+        roleSubtitle.textContent = 'Admin Mode - Configuration';
+      } else {
+        adminSection.classList.add('admin-only');
+        roleSubtitle.textContent = 'User Mode - Simple Reporting';
+        
+        // Apply user permissions
+        const permissions = appSettings.userPermissions;
+        if (permissions === 'reports') {
+          document.querySelector('.mode-btn[data-mode="media"]').style.display = 'none';
+        } else if (permissions === 'media') {
+          document.querySelector('.mode-btn[data-mode="report"]').style.display = 'none';
+          document.querySelector('.mode-btn[data-mode="media"]').click();
+        }
+      }
+      
+      loginSection.classList.add('hidden');
+      appSection.classList.remove('hidden');
+      setStatus(`Welcome, ${currentUser} (${currentRole})`, 'success');
+      
+      // Initialize Google Auth
+      initTokenClient();
+    });
+
+    // Logout handler
+    logoutBtn.addEventListener('click', () => {
+      currentUser = null;
+      currentRole = null;
+      appSection.classList.add('hidden');
+      loginSection.classList.remove('hidden');
+      document.getElementById('userName').value = '';
+      document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+      loginBtn.disabled = true;
+      
+      // Reset media
+      resetMediaCapture();
+    });
+
+    function setStatus(text, type) {
+      statusMessage.textContent = text;
+      statusMessage.className = 'status ' + (type || '');
+      statusMessage.style.display = 'block';
+      
+      if (type === 'success') {
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    // Initialize the Google Identity token client
+    function initTokenClient(){
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (tokenResponse) => {
+          if (tokenResponse.error) {
+            console.error('Token error', tokenResponse);
+            setStatus('Auth error: ' + JSON.stringify(tokenResponse), 'error');
+            return;
+          }
+          accessToken = tokenResponse.access_token;
+          authStatus.textContent = 'Authorized';
+          authorizeBtn.disabled = true;
+          signoutBtn.disabled = false;
+          takePhoto.disabled = false;
+          startRecordingBtn.disabled = false;
+          setStatus('Access token acquired', 'success');
+        }
+      });
+    }
+
+    // Authorize (get token)
+    authorizeBtn.addEventListener('click', () => {
+      if (!tokenClient) initTokenClient();
+      tokenClient.requestAccessToken();
+    });
+
+    signoutBtn.addEventListener('click', () => {
+      accessToken = null;
+      authStatus.textContent = 'Not authorized';
+      authorizeBtn.disabled = false;
+      signoutBtn.disabled = true;
+      takePhoto.disabled = true;
+      startRecordingBtn.disabled = true;
+      setStatus('Token cleared locally', 'success');
+    });
+
+    // Camera controls
+    startCamera.addEventListener('click', async () => {
+      try{
+        const constraints = {
+          video: {
+            facingMode: isFrontCamera ? 'user' : 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: true
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        preview.srcObject = stream;
+        preview.classList.remove('hidden');
+        mediaPreview.classList.add('hidden');
+        canvas.classList.add('hidden');
+        
+        takePhoto.classList.remove('disabled');
+        startRecordingBtn.classList.remove('disabled');
+        startCamera.classList.add('active');
+        
+        setStatus('Camera started successfully', 'success');
+      }catch(err){
+        console.error(err);
+        setStatus('Camera error: ' + err.message, 'error');
+      }
+    });
+
+    // Switch camera
+    switchCamera.addEventListener('click', () => {
+      isFrontCamera = !isFrontCamera;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        startCamera.click();
+      }
+    });
+
+    takePhoto.addEventListener('click', () => {
+      if (!stream) return setStatus('Camera not started', 'error');
+      const videoTrack = stream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      const w = settings.width || preview.videoWidth;
+      const h = settings.height || preview.videoHeight;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(preview, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        lastBlob = blob;
+        const now = new Date();
+        lastFilename = `photo_${now.toISOString().replace(/[:.]/g,'-')}.jpg`;
+        lastInfo.textContent = `Photo — ${lastFilename} — ${Math.round(blob.size/1024)} KB`;
+        uploadBtn.classList.remove('hidden');
+        
+        // Show preview
+        mediaPreview.src = URL.createObjectURL(blob);
+        mediaPreview.style.display = 'block';
+        mediaPreview.classList.remove('hidden');
+        preview.classList.add('hidden');
+        canvas.classList.add('hidden');
+        
+        setStatus('Photo captured (not saved locally)', 'success');
+      }, 'image/jpeg', 0.92);
+    });
+
+    // Video recording using MediaRecorder
+    startRecordingBtn.addEventListener('click', () => {
+      if (!stream) return setStatus('Start camera first', 'error');
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, {mimeType: 'video/webm; codecs=vp8'});
+      mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        lastBlob = new Blob(recordedChunks, {type: 'video/webm'});
+        const now = new Date();
+        lastFilename = `video_${now.toISOString().replace(/[:.]/g,'-')}.webm`;
+        lastInfo.textContent = `Video — ${lastFilename} — ${Math.round(lastBlob.size/1024)} KB`;
+        uploadBtn.classList.remove('hidden');
+        
+        // Show preview
+        mediaPreview.src = URL.createObjectURL(lastBlob);
+        mediaPreview.style.display = 'block';
+        mediaPreview.classList.remove('hidden');
+        preview.classList.add('hidden');
+        
+        setStatus('Recording stopped — ready to upload', 'success');
+      };
+      mediaRecorder.start();
+      startRecordingBtn.classList.add('disabled');
+      stopRecordingBtn.classList.remove('hidden');
+      isRecording = true;
+      setStatus('Recording...', 'loading');
+    });
+
+    stopRecordingBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        startRecordingBtn.classList.remove('disabled');
+        stopRecordingBtn.classList.add('hidden');
+        isRecording = false;
+      }
+    });
+
+    // Upload to Drive
+    uploadBtn.addEventListener('click', async () => {
+      if (!accessToken) return setStatus('Not authorized — click "Authorize Google Drive"', 'error');
+      if (!lastBlob) return setStatus('No capture to upload', 'error');
+
+      const folderId = document.getElementById('defaultFolder').value.trim() || null;
+      const mediaCaption = document.getElementById('mediaCaption').value || 'Untitled';
+      
+      const metadata = {
+        name: lastFilename || 'capture.bin',
+        mimeType: lastBlob.type || 'application/octet-stream',
+        description: mediaCaption,
+        parents: folderId ? [folderId] : undefined
+      };
+
+      setStatus('Preparing upload...', 'loading');
+      uploadBtn.disabled = true;
+
+      // Build multipart body
+      const boundary = '-------314159265358979323846';
+      const delimiter = '\r\n--' + boundary + '\r\n';
+      const closeDelim = '\r\n--' + boundary + '--';
+
+      // Convert blob to ArrayBuffer for concatenation
+      const fileArrayBuffer = await lastBlob.arrayBuffer();
+
+      // Compose multipart as Uint8Array
+      const encoder = new TextEncoder();
+      const pre = encoder.encode(delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: ' + (lastBlob.type || 'application/octet-stream') + '\r\n\r\n');
+      const post = encoder.encode(closeDelim);
+
+      // Create final blob
+      const multipartBlob = new Blob([pre, new Uint8Array(fileArrayBuffer), post], {type: 'multipart/related; boundary="' + boundary + '"'});
+
+      try{
+        setStatus('Uploading to Drive...', 'loading');
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+          },
+          body: multipartBlob
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('Upload error', errText);
+          setStatus('Upload failed: ' + res.status + ' — ' + errText, 'error');
+          uploadBtn.disabled = false;
+          return;
+        }
+
+        const data = await res.json();
+        setStatus('Uploaded! File ID: ' + data.id, 'success');
+        lastInfo.textContent += `\nDrive File ID: ${data.id}\nCaption: "${mediaCaption}"`;
+        uploadBtn.disabled = true;
+        uploadBtn.classList.add('hidden');
+        
+        // Reset media capture
+        resetMediaCapture();
+      }catch(err){
+        console.error(err);
+        setStatus('Upload exception: ' + err.message, 'error');
+        uploadBtn.disabled = false;
+      }
+    });
+
+    // Submit text report
+    submitReportBtn.addEventListener('click', async () => {
+      const title = document.getElementById('reportTitle').value;
+      const description = document.getElementById('reportDescription').value;
+      const priority = document.getElementById('reportPriority').value;
+      
+      if (!title || !description) {
+        setStatus('Please fill in all required fields', 'error');
+        return;
+      }
+      
+      if (!accessToken) {
+        setStatus('Please authorize Google Drive first', 'error');
+        return;
+      }
+      
+      setStatus('Submitting report...', 'loading');
+      submitReportBtn.disabled = true;
+      
+      try {
+        // Create a text file with the report content
+        const reportContent = `Report Title: ${title}\nPriority: ${priority}\nDescription: ${description}\nDate: ${new Date().toISOString()}\nSubmitted by: ${currentUser}`;
+        const reportBlob = new Blob([reportContent], {type: 'text/plain'});
+        
+        const folderId = document.getElementById('defaultFolder').value.trim() || null;
+        const reportFilename = `report_${new Date().toISOString().replace(/[:.]/g,'-')}.txt`;
+        
+        const metadata = {
+          name: reportFilename,
+          mimeType: 'text/plain',
+          description: `Incident Report: ${title}`,
+          parents: folderId ? [folderId] : undefined
+        };
+
+        // Build multipart body for text file
+        const boundary = '-------314159265358979323846';
+        const delimiter = '\r\n--' + boundary + '\r\n';
+        const closeDelim = '\r\n--' + boundary + '--';
+
+        // Convert blob to ArrayBuffer for concatenation
+        const fileArrayBuffer = await reportBlob.arrayBuffer();
+
+        // Compose multipart as Uint8Array
+        const encoder = new TextEncoder();
+        const pre = encoder.encode(delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: text/plain\r\n\r\n');
+        const post = encoder.encode(closeDelim);
+
+        // Create final blob
+        const multipartBlob = new Blob([pre, new Uint8Array(fileArrayBuffer), post], {type: 'multipart/related; boundary="' + boundary + '"'});
+
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+          },
+          body: multipartBlob
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('Upload error', errText);
+          setStatus('Report upload failed: ' + res.status + ' — ' + errText, 'error');
+          submitReportBtn.disabled = false;
+          return;
+        }
+
+        const data = await res.json();
+        setStatus(`Report "${title}" submitted successfully with ${priority} priority`, 'success');
+        
+        // Reset form
+        document.getElementById('reportTitle').value = '';
+        document.getElementById('reportDescription').value = '';
+        document.getElementById('reportPriority').value = 'medium';
+        submitReportBtn.disabled = false;
+        
+        lastInfo.textContent = `Text Report — ${reportFilename} — Drive File ID: ${data.id}`;
+      } catch (err) {
+        console.error('Error submitting report:', err);
+        setStatus('Error submitting report: ' + err.message, 'error');
+        submitReportBtn.disabled = false;
+      }
+    });
+
+    // Create folder functionality
+    createFolderBtn.addEventListener('click', async () => {
+      if (!accessToken) {
+        setStatus('Please authorize Google Drive first', 'error');
+        return;
+      }
+      
+      const folderName = prompt('Enter folder name:');
+      if (!folderName) return;
+      
+      setStatus('Creating folder...', 'loading');
+      
+      try {
+        const metadata = {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: appSettings.defaultFolder ? [appSettings.defaultFolder] : undefined
+        };
+        
+        const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(metadata)
+        });
+        
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText);
+        }
+        
+        const data = await res.json();
+        document.getElementById('defaultFolder').value = data.id;
+        setStatus(`Folder "${folderName}" created with ID: ${data.id}`, 'success');
+      } catch (err) {
+        setStatus('Error creating folder: ' + err.message, 'error');
+      }
+    });
+
+    // Save settings
+    saveSettings.addEventListener('click', () => {
+      appSettings.defaultFolder = document.getElementById('defaultFolder').value;
+      appSettings.userPermissions = document.getElementById('userPermissions').value;
+      setStatus('Settings saved successfully', 'success');
+    });
+
+    function resetMediaCapture() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      
+      lastBlob = null;
+      lastFilename = null;
+      mediaPreview.src = '';
+      mediaPreview.classList.add('hidden');
+      preview.classList.add('hidden');
+      canvas.classList.add('hidden');
+      
+      takePhoto.classList.add('disabled');
+      startRecordingBtn.classList.add('disabled');
+      startCamera.classList.remove('active');
+      stopRecordingBtn.classList.add('hidden');
+      isRecording = false;
+      
+      document.getElementById('mediaCaption').value = '';
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      // Load saved settings
+      const savedSettings = localStorage.getItem('reportLoggerSettings');
+      if (savedSettings) {
+        appSettings = JSON.parse(savedSettings);
+        document.getElementById('defaultFolder').value = appSettings.defaultFolder;
+        document.getElementById('userPermissions').value = appSettings.userPermissions;
+      }
+    });
+
+    // Save settings on change
+    document.getElementById('userPermissions').addEventListener('change', () => {
+      appSettings.userPermissions = document.getElementById('userPermissions').value;
+      localStorage.setItem('reportLoggerSettings', JSON.stringify(appSettings));
+    });
+
+    // Clean up when page is closed
+    window.addEventListener('beforeunload', () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    });
+  </script>
+</body>
+</html>

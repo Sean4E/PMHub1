@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM Hub - Login</title>
+    <link rel="stylesheet" href="pm-hub-styles.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-dark);
+        }
+
+        .login-container {
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .logo h1 {
+            font-size: 48px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .logo p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .pin-pad {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-2xl);
+            backdrop-filter: blur(10px);
+        }
+
+        .pin-display {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            text-align: center;
+            font-size: 32px;
+            letter-spacing: 12px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .pin-display .dots {
+            display: flex;
+            gap: 12px;
+        }
+
+        .pin-display .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            animation: pulse 0.3s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .pin-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .pin-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-xl);
+            font-size: 24px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+
+        .pin-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .pin-btn:active {
+            transform: translateY(0);
+        }
+
+        .pin-btn.clear {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--accent-danger);
+            font-size: 16px;
+        }
+
+        .pin-btn.clear:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-danger);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-md);
+            color: var(--accent-danger);
+            text-align: center;
+            margin-top: var(--spacing-lg);
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-top: var(--spacing-lg);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>PM Hub</h1>
+            <p>Project Management Ecosystem</p>
+        </div>
+
+        <div class="pin-pad">
+            <div class="pin-display">
+                <div class="dots" id="pin-dots"></div>
+            </div>
+
+            <div class="pin-grid">
+                <button class="pin-btn" onclick="addDigit('1')">1</button>
+                <button class="pin-btn" onclick="addDigit('2')">2</button>
+                <button class="pin-btn" onclick="addDigit('3')">3</button>
+                <button class="pin-btn" onclick="addDigit('4')">4</button>
+                <button class="pin-btn" onclick="addDigit('5')">5</button>
+                <button class="pin-btn" onclick="addDigit('6')">6</button>
+                <button class="pin-btn" onclick="addDigit('7')">7</button>
+                <button class="pin-btn" onclick="addDigit('8')">8</button>
+                <button class="pin-btn" onclick="addDigit('9')">9</button>
+                <button class="pin-btn clear" onclick="clearPin()">Clear</button>
+                <button class="pin-btn" onclick="addDigit('0')">0</button>
+                <button class="pin-btn" onclick="backspace()">⌫</button>
+            </div>
+
+            <div class="error-message" id="error-message">
+                Invalid PIN. Please try again.
+            </div>
+
+            <div class="loading" id="loading" style="display: none;">
+                Logging in...
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div style="margin-top: 24px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--border-radius-lg); padding: 20px; backdrop-filter: blur(10px);">
+            <h3 style="color: var(--text-primary); font-size: 16px; margin-bottom: 16px; text-align: center;">Cloud Services</h3>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Google Drive Status -->
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">📁</span>
+                        <div>
+                            <div style="font-size: 14px; color: var(--text-primary); font-weight: 600;">Google Drive</div>
+                            <div id="drive-status" style="font-size: 12px; color: var(--text-secondary);">Not connected</div>
+                        </div>
+                    </div>
+                    <button id="drive-connect-btn" onclick="connectGoogleDrive()" style="padding: 8px 16px; background: var(--accent-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                        Connect
+                    </button>
+                </div>
+
+                <!-- Firebase Status -->
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">🔥</span>
+                        <div>
+                            <div style="font-size: 14px; color: var(--text-primary); font-weight: 600;">Firebase</div>
+                            <div id="firebase-status" style="font-size: 12px; color: var(--text-secondary);">Not connected</div>
+                        </div>
+                    </div>
+                    <button id="firebase-connect-btn" onclick="connectFirebase()" style="padding: 8px 16px; background: #FFA000; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                        Connect
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-top: 12px; padding: 8px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+                Connect services now for seamless file uploads and real-time sync
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Drive Connection -->
+    <script>
+        let gapiInited = false;
+        let tokenClient = null;
+
+        const CLIENT_ID = '904576712649-mcrh6cl8ei84gktkfg2f36eqc8454k1q.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyBoEAEz1NnCJDQ221u4XxXZIBaQrN-nlAc';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar';
+
+        window.gapiLoaded = function() {
+            gapi.load('client', async () => {
+                // DO NOT use API key - it forces all requests to use key auth instead of OAuth
+                await gapi.client.init({
+                    discoveryDocs: [
+                        'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+                        'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
+                    ]
+                });
+                gapiInited = true;
+                console.log('Google API loaded');
+            });
+        };
+
+        window.gisLoaded = function() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (response) => {
+                    if (response.access_token) {
+                        localStorage.setItem('google_access_token', response.access_token);
+                        localStorage.setItem('drive_connected', 'true');
+                        updateDriveStatus(true);
+                    }
+                }
+            });
+            console.log('Google Identity Services loaded');
+        };
+
+        window.connectGoogleDrive = function() {
+            if (!gapiInited || !tokenClient) {
+                updateDriveStatus(false, 'API not loaded yet, please wait...');
+                setTimeout(() => {
+                    if (gapiInited && tokenClient) {
+                        updateDriveStatus(false, 'Not connected');
+                    }
+                }, 2000);
+                return;
+            }
+            tokenClient.requestAccessToken();
+        };
+
+        function updateDriveStatus(connected, error) {
+            const statusEl = document.getElementById('drive-status');
+            const btnEl = document.getElementById('drive-connect-btn');
+
+            if (connected) {
+                statusEl.textContent = 'Connected ✓';
+                statusEl.style.color = '#22c55e';
+                btnEl.textContent = 'Connected';
+                btnEl.style.background = '#22c55e';
+                btnEl.disabled = true;
+                btnEl.style.cursor = 'not-allowed';
+            } else {
+                statusEl.textContent = error ? `Error: ${error}` : 'Not connected';
+                statusEl.style.color = error ? '#ef4444' : 'var(--text-secondary)';
+            }
+        }
+
+        // Check if already connected
+        if (localStorage.getItem('drive_connected') === 'true' && localStorage.getItem('google_access_token')) {
+            updateDriveStatus(true);
+        }
+    </script>
+
+    <!-- Load Google APIs -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDnwDzHtjFKaWY-VwIMJtomfunkp7t9GFc",
+            authDomain: "assettracker1-5b976.firebaseapp.com",
+            projectId: "assettracker1-5b976",
+            storageBucket: "assettracker1-5b976.firebasestorage.app",
+            messagingSenderId: "260186083597",
+            appId: "1:260186083597:web:5ec0eb9d5f8a4132022044"
+        };
+
+        window.firebaseApp = null;
+        window.firebaseDB = null;
+
+        window.connectFirebase = async function() {
+            try {
+                // Initialize Firebase if not already done
+                if (!window.firebaseApp) {
+                    window.firebaseApp = initializeApp(firebaseConfig);
+                }
+
+                window.firebaseDB = getFirestore(window.firebaseApp);
+
+                // Test connection by accessing Firestore
+                // This will fail if not connected
+                await getDocs(collection(window.firebaseDB, 'test'));
+
+                localStorage.setItem('firebase_connected', 'true');
+                updateFirebaseStatus(true);
+                console.log('Firebase Firestore connected successfully');
+
+            } catch (error) {
+                console.error('Firebase connection error:', error);
+                // Still mark as connected if it's just a missing collection
+                if (error.code === 'permission-denied' || error.message.includes('Missing or insufficient permissions')) {
+                    // Connection works, just no permissions to test collection
+                    localStorage.setItem('firebase_connected', 'true');
+                    updateFirebaseStatus(true);
+                    console.log('Firebase connected (permissions test skipped)');
+                } else {
+                    updateFirebaseStatus(false, error.message);
+                }
+            }
+        };
+
+        function updateFirebaseStatus(connected, error) {
+            const statusEl = document.getElementById('firebase-status');
+            const btnEl = document.getElementById('firebase-connect-btn');
+
+            if (connected) {
+                statusEl.textContent = 'Connected ✓';
+                statusEl.style.color = '#22c55e';
+                btnEl.textContent = 'Connected';
+                btnEl.style.background = '#22c55e';
+                btnEl.disabled = true;
+                btnEl.style.cursor = 'not-allowed';
+            } else {
+                statusEl.textContent = error ? `Error: ${error}` : 'Not connected';
+                statusEl.style.color = error ? '#ef4444' : 'var(--text-secondary)';
+                btnEl.disabled = false;
+                btnEl.style.cursor = 'pointer';
+            }
+        }
+
+        // Check if already connected
+        if (localStorage.getItem('firebase_connected') === 'true') {
+            updateFirebaseStatus(true);
+        }
+
+        window.firebaseModule = { initializeApp, getFirestore, collection, getDocs };
+    </script>
+
+    <script type="module">
+        let pin = '';
+
+        window.addDigit = function(digit) {
+            if (pin.length < 4) {
+                pin += digit;
+                updateDisplay();
+
+                if (pin.length === 4) {
+                    setTimeout(() => checkPin(), 300);
+                }
+            }
+        };
+
+        window.clearPin = function() {
+            pin = '';
+            updateDisplay();
+            hideError();
+        };
+
+        window.backspace = function() {
+            pin = pin.slice(0, -1);
+            updateDisplay();
+            hideError();
+        };
+
+        function updateDisplay() {
+            const dotsContainer = document.getElementById('pin-dots');
+            dotsContainer.innerHTML = '';
+
+            for (let i = 0; i < pin.length; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dotsContainer.appendChild(dot);
+            }
+        }
+
+        function showError() {
+            const error = document.getElementById('error-message');
+            error.classList.add('show');
+            setTimeout(() => {
+                clearPin();
+            }, 1500);
+        }
+
+        function hideError() {
+            const error = document.getElementById('error-message');
+            error.classList.remove('show');
+        }
+
+        async function checkPin() {
+            document.getElementById('loading').style.display = 'block';
+
+            // Get users from hub state (using correct key)
+            const hubState = localStorage.getItem('pmSystemState');
+
+            if (!hubState) {
+                // No users yet - first time setup, go to admin hub
+                if (pin === '0000') {
+                    localStorage.setItem('pm_hub_current_user', JSON.stringify({
+                        id: 'admin',
+                        name: 'Administrator',
+                        pin: '0000',
+                        accessLevel: 'Admin'
+                    }));
+
+                    // Pass cloud service connections to the apps
+                    if (window.firebaseApp && window.firebaseDB) {
+                        localStorage.setItem('firebase_initialized', 'true');
+                    }
+                    if (localStorage.getItem('google_access_token')) {
+                        localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
+                    }
+
+                    window.location.href = 'PM_Hub_CL_v01_024.html';
+                    return;
+                }
+            } else {
+                const state = JSON.parse(hubState);
+                const allUsers = [...(state.ourTeam || []), ...(state.clientTeam || [])];
+
+                // Find user by PIN
+                const user = allUsers.find(u => u.pin === pin);
+
+                if (user) {
+                    // Store current user
+                    localStorage.setItem('pm_hub_current_user', JSON.stringify(user));
+
+                    // Pass cloud service connections to the apps
+                    if (window.firebaseApp && window.firebaseDB) {
+                        localStorage.setItem('firebase_initialized', 'true');
+                    }
+                    if (localStorage.getItem('google_access_token')) {
+                        localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
+                    }
+
+                    // Route based on accessLevel
+                    if (user.accessLevel === 'Admin' || user.accessLevel === 'Manager') {
+                        window.location.href = 'PM_Hub_CL_v01_024.html';
+                    } else {
+                        window.location.href = 'worker.html';
+                    }
+                    return;
+                }
+            }
+
+            // Invalid PIN
+            document.getElementById('loading').style.display = 'none';
+            showError();
+        }
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                addDigit(e.key);
+            } else if (e.key === 'Backspace') {
+                backspace();
+            } else if (e.key === 'Escape') {
+                clearPin();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Smart Invoice Builder</title>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  /* Core theme variables */
+  :root{
+    --bg-dark:#071017;
+    --panel-dark: rgba(255,255,255,0.03);
+    --glass-blur:10px;
+    --accent:#4fc3f7;
+    --muted:#9aa4b2;
+    --card-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  body{margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,var(--bg-dark) 0%, #0d1216 100%); color:#e6eef6}
+  .topbar{height:64px;display:flex;align-items:center;gap:12px;padding:12px 18px;position:sticky;top:0;z-index:60;backdrop-filter: blur(6px);}
+  .app{display:grid;grid-template-columns:360px 1fr 380px;gap:16px;padding:16px;height:calc(100vh - 64px);}
+  .panel{background:var(--panel-dark);border-radius:12px;padding:12px;box-shadow:var(--card-shadow);backdrop-filter: blur(var(--glass-blur));overflow:auto}
+  h2{margin:6px 0;color:var(--accent)}
+  .muted{color:var(--muted);font-size:13px}
+  .smallBtn{background:transparent;border:0;color:inherit;padding:6px;border-radius:8px;cursor:pointer}
+  input, select, textarea, button{font-family:inherit}
+  input[type="text"], input[type="number"], select, textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  textarea{min-height:60px;resize:vertical}
+  .block-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.03)}
+  .block-head{display:flex;justify-content:space-between;align-items:center}
+  .dragHandle{cursor:grab;padding:6px 8px;border-radius:8px}
+  .block-body{margin-top:8px}
+  .flexRow{display:flex;gap:8px;align-items:center}
+  .btnPrimary{background:linear-gradient(90deg,var(--accent),#80deea);border:0;padding:8px 12px;border-radius:10px;color:#032730;font-weight:700;cursor:pointer}
+  /* Preview area (A4 sheet) */
+  .previewWrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .previewControls{width:100%;display:flex;justify-content:flex-end;gap:8px;align-items:center}
+  .zoomSelect{padding:6px 8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.05);color:inherit}
+  .previewStage{width:100%;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:8px}
+  .sheet{width:794px;height:1123px;background:white;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.6);overflow:auto;transform-origin:top center}
+  .invoice-inner{padding:28px;font-family:Arial, Helvetica, sans-serif;color:#0b0b0b;box-sizing:border-box;min-height:1123px}
+  .invoice-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  .logoImg{max-width:220px;max-height:80px;object-fit:contain}
+  .companyBlock{font-weight:700;white-space:pre-wrap}
+  .billTo{white-space:pre-wrap}
+  .itemsTable{width:100%;border-collapse:collapse;margin-top:16px}
+  .itemsTable th,.itemsTable td{padding:8px;border-bottom:1px dashed rgba(0,0,0,0.08);text-align:left}
+  .totalsBox{margin-top:12px;float:right;width:320px}
+  .notesBox{margin-top:16px;white-space:pre-wrap;font-size:13px;color:#333}
+  /* Right quick panel */
+  .rightPanel{display:flex;flex-direction:column;gap:12px}
+  .controlsGroup{margin-bottom:8px}
+  .smallInline{display:inline-block;width:auto}
+  .hidden{display:none}
+  /* Light Mode */
+  body.light{background:linear-gradient(180deg,#eef3f7 0%, #dfe7ee 100%);color:#0b0b0b}
+  body.light .panel{background:var(--panel-light)}
+  body.light input, body.light textarea, body.light select{background:rgba(255,255,255,0.9);color:#0b0b0b;border:1px solid rgba(0,0,0,0.06)}
+  /* Responsive */
+  @media (max-width:1100px){ .app{grid-template-columns:1fr;grid-auto-rows:auto;padding:12px} .sheet{width:640px;height:905px} .panel{max-height:360px} }
+</style>
+</head>
+<body>
+  <div class="topbar panel" style="display:flex;align-items:center;gap:12px">
+    <div style="display:flex;gap:12px;align-items:center">
+      <button id="toggleDrawer" class="smallBtn" title="Toggle editor">☰</button>
+      <div style="font-weight:800;font-size:18px">PM Hub</div>
+      <div class="muted">• Smart Invoice Builder</div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <label class="muted">Theme</label>
+      <select id="themeToggle" style="width:120px;padding:8px;border-radius:8px">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+
+      <label class="muted">Zoom</label>
+      <select id="zoomSelectTop" class="zoomSelect">
+        <option value="1">100%</option>
+        <option value="1.25">125%</option>
+        <option value="1.5">150%</option>
+      </select>
+
+      <button id="exportPdf" class="btnPrimary">Export PDF</button>
+      <button id="exportXlsx" class="smallBtn">Export Excel</button>
+      <button id="exportJson" class="smallBtn">Export JSON</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- LEFT: Block editor (collapsible) -->
+    <div id="leftPanel" class="panel" style="min-height:0">
+      <h2>Blocks</h2>
+      <div class="muted">Drag to reorder • Show/hide • Inline or sidebar edit</div>
+      <div id="blocksList" style="margin-top:12px"></div>
+
+      <div style="margin-top:12px">
+        <h2>Presets</h2>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="presetModern" class="smallBtn">Modern</button>
+          <button id="presetMinimal" class="smallBtn">Minimal</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h2>Template</h2>
+        <input id="templateName" placeholder="Template name" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="saveTemplateBtn" class="btnPrimary">Save</button>
+          <button id="loadTemplateBtn" class="smallBtn">Load</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Preview (A4) -->
+    <div class="previewWrap">
+      <div class="previewControls" style="width:100%">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="muted">Preview Zoom</label>
+          <select id="zoomSelect" class="zoomSelect">
+            <option value="1">100%</option>
+            <option value="1.25">125%</option>
+            <option value="1.5">150%</option>
+          </select>
+          <button id="centerPreview" class="smallBtn">Center</button>
+        </div>
+      </div>
+
+      <div class="previewStage">
+        <div id="sheet" class="sheet">
+          <div id="invoiceInner" class="invoice-inner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Quick Editor -->
+    <div class="panel rightPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Quick Controls</h2>
+        <div class="muted">Live sync</div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Logo</div>
+        <div style="display:flex;gap:8px">
+          <input id="logoFile" type="file" accept="image/*" />
+          <select id="logoAlign" style="width:120px">
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="center">Center</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Invoice</div>
+        <div style="display:flex;gap:8px">
+          <input id="invoiceNumber" placeholder="Invoice #" />
+          <input id="invoiceRef" placeholder="Ref" />
+        </div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Dates</div>
+        <div style="display:flex;gap:8px">
+          <input id="dateIssue" type="date" />
+          <input id="dateDue" type="date" />
+        </div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">From / To</div>
+        <textarea id="fromText" placeholder="From (company)"></textarea>
+        <textarea id="toText" placeholder="To (client)"></textarea>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Items</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left">Item</th><th style="width:70px">Qty</th><th style="width:120px">Price</th><th></th></tr></thead>
+          <tbody id="quickItems"></tbody>
+        </table>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="addQuickItem" class="smallBtn">+ Item</button>
+          <button id="clearQuickItems" class="smallBtn">Clear</button>
+        </div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Totals & Currency</div>
+        <div style="display:flex;gap:8px">
+          <select id="currencySelect" style="width:110px">
+            <option value="EUR">€ EUR</option>
+            <option value="USD">$ USD</option>
+            <option value="GBP">£ GBP</option>
+          </select>
+          <input id="vatVal" type="number" placeholder="VAT %" style="width:100px" />
+          <select id="discountMode" style="width:120px">
+            <option value="none">No discount</option>
+            <option value="percent">Percent</option>
+            <option value="fixed">Fixed</option>
+          </select>
+          <input id="discountVal" type="number" placeholder="0.00" style="width:100px" />
+        </div>
+      </div>
+
+      <div class="controlsGroup">
+        <div class="muted">Notes</div>
+        <textarea id="notesQuick" placeholder="Payment terms, bank details..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+        <div class="muted">Template actions</div>
+        <div style="display:flex;gap:8px">
+          <button id="downloadJsonBtn" class="smallBtn">JSON</button>
+          <button id="downloadCsvBtn" class="smallBtn">CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ======================
+   DS_Ultimate - single source of truth state
+   ====================== */
+const BLOCKS_STORAGE_KEY = 'ds_ultimate_blocks_v1';
+const TEMPLATES_KEY = 'ds_ultimate_templates_v1';
+const coreFonts = ['Arial','Times New Roman','Courier New','Roboto','Verdana'];
+
+/* Block structure:
+ { id, key, label, visible, layout:'full'|'row', padding, font, size, weight, align, settings:{} }
+ settings vary per block
+*/
+let blocks = null;
+
+/* Default blocks */
+const defaultBlocks = [
+  { key:'logo', label:'Logo', visible:true, layout:'full', padding:8, font:'Arial', size:14, weight:'normal', align:'left', settings:{src:'', align:'left'} },
+  { key:'invoiceDetails', label:'Invoice Details', visible:true, layout:'row', padding:6, font:'Arial', size:14, weight:'bold', align:'left', settings:{number:'', ref:''} },
+  { key:'dates', label:'Dates', visible:true, layout:'row', padding:6, font:'Arial', size:13, weight:'normal', align:'left', settings:{issue:'', due:''} },
+  { key:'from', label:'From', visible:true, layout:'row', padding:6, font:'Arial', size:13, weight:'normal', align:'left', settings:{text:''} },
+  { key:'to', label:'To', visible:true, layout:'row', padding:6, font:'Arial', size:13, weight:'normal', align:'left', settings:{text:''} },
+  { key:'items', label:'Items', visible:true, layout:'full', padding:6, font:'Arial', size:13, weight:'normal', align:'left', settings:{rows:[]} },
+  { key:'totals', label:'Totals', visible:true, layout:'full', padding:8, font:'Arial', size:13, weight:'bold', align:'right', settings:{vat:0, discountMode:'none', discountVal:0, currency:'EUR'} },
+  { key:'notes', label:'Notes', visible:true, layout:'full', padding:6, font:'Arial', size:12, weight:'normal', align:'left', settings:{text:''} }
+];
+
+/* Load blocks from local storage or init */
+function loadBlocks(){
+  const raw = localStorage.getItem(BLOCKS_STORAGE_KEY);
+  if(raw){ try{ blocks = JSON.parse(raw); return; } catch(e){ console.warn('blocks parse failed',e); } }
+  blocks = defaultBlocks.map(b => ({ id: b.key + '_' + Math.random().toString(36).slice(2,7), ...JSON.parse(JSON.stringify(b)) }));
+  // sample items
+  const items = blocks.find(x=>x.key==='items');
+  items.settings.rows = [{desc:'Design work',qty:8,unit:'hrs',price:45},{desc:'Development',qty:12,unit:'hrs',price:60}];
+  blocks.find(b=>b.key==='totals').settings.vat = 23;
+  saveBlocks();
+}
+function saveBlocks(){ localStorage.setItem(BLOCKS_STORAGE_KEY, JSON.stringify(blocks)); }
+
+/* ---------------------------
+   DOM refs
+   --------------------------- */
+const blocksList = document.getElementById('blocksList');
+const invoiceInner = document.getElementById('invoiceInner');
+const leftPanel = document.getElementById('leftPanel');
+const zoomSelect = document.getElementById('zoomSelect');
+const zoomSelectTop = document.getElementById('zoomSelectTop');
+const themeToggle = document.getElementById('themeToggle');
+
+/* Quick panel refs */
+const logoFile = document.getElementById('logoFile');
+const logoAlign = document.getElementById('logoAlign');
+const invoiceNumber = document.getElementById('invoiceNumber');
+const invoiceRef = document.getElementById('invoiceRef');
+const dateIssue = document.getElementById('dateIssue');
+const dateDue = document.getElementById('dateDue');
+const fromText = document.getElementById('fromText');
+const toText = document.getElementById('toText');
+const quickItems = document.getElementById('quickItems');
+const addQuickItem = document.getElementById('addQuickItem');
+const clearQuickItems = document.getElementById('clearQuickItems');
+const currencySelect = document.getElementById('currencySelect');
+const vatVal = document.getElementById('vatVal');
+const discountMode = document.getElementById('discountMode');
+const discountVal = document.getElementById('discountVal');
+const notesQuick = document.getElementById('notesQuick');
+
+const exportPdfBtn = document.getElementById('exportPdf');
+const exportXlsxBtn = document.getElementById('exportXlsx');
+const exportJsonBtn = document.getElementById('exportJson');
+const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+const loadTemplateBtn = document.getElementById('loadTemplateBtn');
+const templateNameInput = document.getElementById('templateName');
+const presetModern = document.getElementById('presetModern');
+const presetMinimal = document.getElementById('presetMinimal');
+const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+/* zoom sync */
+zoomSelect.addEventListener('change', ()=>{ const s = parseFloat(zoomSelect.value); document.getElementById('sheet').style.transform = `scale(${s})`; zoomSelectTop.value = zoomSelect.value; });
+zoomSelectTop.addEventListener('change', ()=>{ zoomSelect.value = zoomSelectTop.value; document.getElementById('sheet').style.transform = `scale(${zoomSelect.value})`; });
+
+/* Theme toggle */
+themeToggle.addEventListener('change', (e)=> setTheme(e.target.value) );
+function setTheme(name){
+  if(name === 'light'){ document.body.classList.add('light'); } else { document.body.classList.remove('light'); }
+}
+
+/* ---------------------------
+   Build blocks UI
+   --------------------------- */
+function buildBlocksUI(){
+  blocksList.innerHTML = '';
+  blocks.forEach((b, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'block-card';
+    card.dataset.id = b.id;
+    card.innerHTML = `
+      <div class="block-head">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="dragHandle">☰</div>
+          <div style="font-weight:700">${b.label}</div>
+          <div class="muted" style="font-size:12px">#${idx+1}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="smallBtn eyeBtn">${b.visible ? '👁️' : '🚫'}</button>
+          <button class="smallBtn expandBtn">⚙️</button>
+        </div>
+      </div>
+      <div class="block-body" style="display:none"></div>
+    `;
+    blocksList.appendChild(card);
+
+    const eyeBtn = card.querySelector('.eyeBtn');
+    const expandBtn = card.querySelector('.expandBtn');
+    const body = card.querySelector('.block-body');
+
+    eyeBtn.addEventListener('click', ()=>{ b.visible = !b.visible; eyeBtn.textContent = b.visible ? '👁️' : '🚫'; renderInvoice(); saveBlocks(); });
+    expandBtn.addEventListener('click', ()=> { body.style.display = body.style.display === 'none' ? 'block' : 'none'; });
+
+    // populate settings
+    buildBlockSettings(b, body);
+  });
+
+  // make sortable
+  new Sortable(blocksList, {
+    handle: '.dragHandle',
+    animation: 150,
+    onEnd: (evt) => {
+      const moved = blocks.splice(evt.oldIndex,1)[0];
+      blocks.splice(evt.newIndex,0,moved);
+      buildBlocksUI();
+      renderInvoice();
+      saveBlocks();
+    }
+  });
+}
+
+/* Build settings UI for a block */
+function buildBlockSettings(block, container){
+  container.innerHTML = '';
+  const wrapper = document.createElement('div');
+  wrapper.style.display='flex'; wrapper.style.flexDirection='column'; wrapper.style.gap='8px';
+
+  // layout
+  const layoutSel = document.createElement('select');
+  layoutSel.innerHTML = `<option value="full">Full width</option><option value="row">Share row</option>`;
+  layoutSel.value = block.layout;
+  layoutSel.addEventListener('change', e => { block.layout = e.target.value; renderInvoice(); saveBlocks(); });
+
+  // padding
+  const pad = document.createElement('input'); pad.type='number'; pad.value = block.padding;
+  pad.addEventListener('input', e=>{ block.padding = parseInt(e.target.value||0); renderInvoice(); saveBlocks(); });
+
+  // font
+  const fontSel = document.createElement('select');
+  coreFonts.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=f; if(block.font===f) o.selected=true; fontSel.appendChild(o); });
+  fontSel.addEventListener('change', e=>{ block.font = e.target.value; renderInvoice(); saveBlocks(); });
+
+  // size
+  const sizeInp = document.createElement('input'); sizeInp.type='number'; sizeInp.value = block.size;
+  sizeInp.addEventListener('input', e=>{ block.size = parseInt(e.target.value||0); renderInvoice(); saveBlocks(); });
+
+  // weight
+  const weightSel = document.createElement('select'); weightSel.innerHTML = `<option value="normal">Normal</option><option value="bold">Bold</option>`;
+  weightSel.value = block.weight; weightSel.addEventListener('change', e=>{ block.weight = e.target.value; renderInvoice(); saveBlocks(); });
+
+  // align
+  const alignSel = document.createElement('select'); alignSel.innerHTML = `<option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>`;
+  alignSel.value = block.align; alignSel.addEventListener('change', e=>{ block.align = e.target.value; if(block.key==='logo') block.settings.align = e.target.value; renderInvoice(); saveBlocks(); });
+
+  // assemble controls
+  wrapper.appendChild(labeled('Layout', layoutSel));
+  wrapper.appendChild(labeled('Padding (px)', pad));
+  wrapper.appendChild(labeled('Font', fontSel));
+  wrapper.appendChild(labeled('Size (px)', sizeInp));
+  wrapper.appendChild(labeled('Weight', weightSel));
+  wrapper.appendChild(labeled('Alignment', alignSel));
+
+  // block-specific settings
+  const spec = document.createElement('div');
+  // Logo: upload + align
+  if(block.key === 'logo'){
+    spec.innerHTML = `<div class="muted">Logo file</div><input type="file" accept="image/*" class="logoUpload" /><div class="muted">Alignment</div>`;
+    const align = document.createElement('select'); align.innerHTML = `<option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>`; align.value = block.settings.align || block.align;
+    align.addEventListener('change', e=>{ block.settings.align = e.target.value; renderInvoice(); saveBlocks(); });
+    spec.appendChild(align);
+    setTimeout(()=>{ const input = spec.querySelector('.logoUpload'); if(block.settings && block.settings.src) { /* nothing */ } input.addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload = ev=>{ block.settings.src = ev.target.result; renderInvoice(); saveBlocks(); }; r.readAsDataURL(f); }); },0);
+  }
+
+  // Invoice details
+  if(block.key === 'invoiceDetails'){
+    spec.innerHTML = `<div class="muted">Invoice number & reference</div><div style="display:flex;gap:8px"><input class="invno" placeholder="Invoice #"/><input class="invref" placeholder="Ref"/></div>`;
+    setTimeout(()=>{ spec.querySelector('.invno').value = block.settings.number || invoiceNumber.value || ''; spec.querySelector('.invref').value = block.settings.ref || invoiceRef.value || ''; spec.querySelector('.invno').addEventListener('input', e=>{ block.settings.number = e.target.value; invoiceNumber.value = e.target.value; renderInvoice(); saveBlocks(); }); spec.querySelector('.invref').addEventListener('input', e=>{ block.settings.ref = e.target.value; invoiceRef.value = e.target.value; renderInvoice(); saveBlocks(); }); },0);
+  }
+
+  // Dates
+  if(block.key === 'dates'){
+    spec.innerHTML = `<div class="muted">Issue & Due</div><div style="display:flex;gap:8px"><input type="date" class="issue"/><input type="date" class="due"/></div>`;
+    setTimeout(()=>{ spec.querySelector('.issue').value = block.settings.issue || dateIssue.value || ''; spec.querySelector('.due').value = block.settings.due || dateDue.value || ''; spec.querySelector('.issue').addEventListener('input', e=>{ block.settings.issue = e.target.value; dateIssue.value = e.target.value; renderInvoice(); saveBlocks(); }); spec.querySelector('.due').addEventListener('input', e=>{ block.settings.due = e.target.value; dateDue.value = e.target.value; renderInvoice(); saveBlocks(); }); },0);
+  }
+
+  // From / To
+  if(block.key === 'from' || block.key === 'to'){
+    spec.innerHTML = `<div class="muted">Text</div><textarea class="txt"></textarea>`;
+    setTimeout(()=>{ const ta = spec.querySelector('.txt'); ta.value = block.settings.text || (block.key==='from' ? fromText.value : toText.value) || ''; ta.addEventListener('input', e=>{ block.settings.text = e.target.value; if(block.key==='from') fromText.value = e.target.value; else toText.value = e.target.value; renderInvoice(); saveBlocks(); }); },0);
+  }
+
+  // Items
+  if(block.key === 'items'){
+    spec.innerHTML = `<div class="muted">Rows (desc, qty, unit, price)</div><div style="margin-top:8px"><table style="width:100%"><tbody class="rowsUI"></tbody></table><div style="display:flex;gap:8px;margin-top:8px"><button class="smallBtn addRow">+ Row</button><button class="smallBtn clearRows">Clear</button></div></div>`;
+    setTimeout(()=>{ const rowsUI = spec.querySelector('.rowsUI'); function refresh(){ rowsUI.innerHTML=''; (block.settings.rows||[]).forEach((r,i)=>{ const tr = document.createElement('tr'); tr.innerHTML = `<td style="width:45%"><input class="input desc" value="${r.desc||''}" /></td><td style="width:12%"><input class="input qty" type="number" value="${r.qty||0}" /></td><td style="width:12%"><input class="input unit" value="${r.unit||''}" /></td><td style="width:20%"><input class="input price" type="number" value="${r.price||0}" /></td><td style="width:8%"><button class="smallBtn rem">✖</button></td>`; rowsUI.appendChild(tr); tr.querySelector('.desc').addEventListener('input', e=>{ r.desc=e.target.value; renderInvoice(); saveBlocks();}); tr.querySelector('.qty').addEventListener('input', e=>{ r.qty=parseFloat(e.target.value||0); renderInvoice(); saveBlocks();}); tr.querySelector('.unit').addEventListener('input', e=>{ r.unit=e.target.value; renderInvoice(); saveBlocks();}); tr.querySelector('.price').addEventListener('input', e=>{ r.price=parseFloat(e.target.value||0); renderInvoice(); saveBlocks();}); tr.querySelector('.rem').addEventListener('click', ()=>{ block.settings.rows.splice(i,1); refresh(); renderInvoice(); saveBlocks(); }); }); } spec.querySelector('.addRow').addEventListener('click', ()=>{ block.settings.rows.push({desc:'',qty:1,unit:'',price:0}); refresh(); renderInvoice(); saveBlocks(); }); spec.querySelector('.clearRows').addEventListener('click', ()=>{ block.settings.rows=[]; refresh(); renderInvoice(); saveBlocks(); }); refresh(); },0);
+  }
+
+  // Totals
+  if(block.key === 'totals'){
+    spec.innerHTML = `<div class="muted">VAT & Discount</div><div style="display:flex;gap:8px;margin-top:8px"><input class="input vat" type="number" placeholder="VAT %"/><select class="input dmode" style="width:110px"><option value="none">No discount</option><option value="percent">Percent</option><option value="fixed">Fixed</option></select><input class="input dval" type="number" placeholder="0.00"/></div><div style="margin-top:8px" class="muted">Currency</div><select class="input cur"><option value="EUR">€ EUR</option><option value="USD">$ USD</option><option value="GBP">£ GBP</option></select>`;
+    setTimeout(()=>{ const vat=spec.querySelector('.vat'); const dmode=spec.querySelector('.dmode'); const dval=spec.querySelector('.dval'); const cur=spec.querySelector('.cur'); vat.value = block.settings.vat || 0; dmode.value = block.settings.discountMode || 'none'; dval.value = block.settings.discountVal || 0; cur.value = block.settings.currency || 'EUR'; vat.addEventListener('input', e=>{ block.settings.vat=parseFloat(e.target.value||0); vatVal.value=e.target.value; renderInvoice(); saveBlocks(); }); dmode.addEventListener('change', e=>{ block.settings.discountMode=e.target.value; discountMode.value=e.target.value; renderInvoice(); saveBlocks(); }); dval.addEventListener('input', e=>{ block.settings.discountVal=parseFloat(e.target.value||0); discountVal.value=e.target.value; renderInvoice(); saveBlocks(); }); cur.addEventListener('change', e=>{ block.settings.currency=e.target.value; currencySelect.value=e.target.value; renderInvoice(); saveBlocks(); }); },0);
+  }
+
+  // Notes
+  if(block.key === 'notes'){
+    spec.innerHTML = `<div class="muted">Notes / Payment terms</div><textarea class="input notes"></textarea>`;
+    setTimeout(()=>{ const n = spec.querySelector('.notes'); n.value = block.settings.text || notesQuick.value || ''; n.addEventListener('input', e=>{ block.settings.text = e.target.value; notesQuick.value = e.target.value; renderInvoice(); saveBlocks(); }); },0);
+  }
+
+  wrapper.appendChild(spec);
+  container.appendChild(wrapper);
+}
+
+/* Helper for labeled field */
+function labeled(label, control){
+  const wrapper = document.createElement('div');
+  const lab = document.createElement('div'); lab.className='muted'; lab.textContent = label;
+  wrapper.appendChild(lab); wrapper.appendChild(control);
+  return wrapper;
+}
+
+/* ---------------------------
+   Render invoice preview (live from blocks)
+   --------------------------- */
+function renderInvoice(){
+  // Ensure quick-panel fields sync to blocks if empty
+  const details = blocks.find(b=>b.key==='invoiceDetails'); if(details){ details.settings.number = details.settings.number || invoiceNumber.value; details.settings.ref = details.settings.ref || invoiceRef.value; }
+  const dates = blocks.find(b=>b.key==='dates'); if(dates){ dates.settings.issue = dates.settings.issue || dateIssue.value; dates.settings.due = dates.settings.due || dateDue.value; }
+  const fromB = blocks.find(b=>b.key==='from'); if(fromB) fromB.settings.text = fromB.settings.text || fromText.value;
+  const toB = blocks.find(b=>b.key==='to'); if(toB) toB.settings.text = toB.settings.text || toText.value;
+  const totalsB = blocks.find(b=>b.key==='totals'); if(totalsB){ totalsB.settings.vat = totalsB.settings.vat || parseFloat(vatVal.value||0); totalsB.settings.discountMode = totalsB.settings.discountMode || discountMode.value; totalsB.settings.discountVal = totalsB.settings.discountVal || parseFloat(discountVal.value||0); totalsB.settings.currency = totalsB.settings.currency || currencySelect.value; }
+  const notesB = blocks.find(b=>b.key==='notes'); if(notesB) notesB.settings.text = notesB.settings.text || notesQuick.value;
+
+  invoiceInner.innerHTML = '';
+  let rowBuffer = [];
+
+  function flushRow(){
+    if(rowBuffer.length === 0) return;
+    const rowWrap = document.createElement('div');
+    rowWrap.style.display = 'flex';
+    rowWrap.style.gap = '12px';
+    rowBuffer.forEach(e=> rowWrap.appendChild(e));
+    invoiceInner.appendChild(rowWrap);
+    rowBuffer = [];
+  }
+
+  blocks.forEach(block => {
+    if(!block.visible) return;
+    const el = document.createElement('div');
+    el.style.padding = (block.padding || 0) + 'px';
+    el.style.fontFamily = block.font;
+    el.style.fontSize = (block.size || 13) + 'px';
+    el.style.fontWeight = block.weight || 'normal';
+    el.style.boxSizing = 'border-box';
+    el.style.width = block.layout === 'row' ? '50%' : '100%';
+    el.style.minWidth = '0';
+    el.style.marginBottom = '6px';
+    el.style.textAlign = block.align || 'left';
+
+    // Render block-specific content. Use contenteditable for inline edits where appropriate.
+    switch(block.key){
+      case 'logo': {
+        if(block.settings.src){
+          const wrapper = document.createElement('div');
+          wrapper.style.display='flex'; wrapper.style.justifyContent = block.settings.align || block.align || 'left';
+          const img = document.createElement('img'); img.src = block.settings.src; img.className='logoImg';
+          wrapper.appendChild(img); el.appendChild(wrapper);
+        } else {
+          el.innerHTML = `<div style="font-weight:700">${block.label}</div>`;
+        }
+        break;
+      }
+
+      case 'invoiceDetails': {
+        const num = block.settings.number || invoiceNumber.value || '';
+        const ref = block.settings.ref || invoiceRef.value || '';
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<div style="font-size:18px;font-weight:800;color:${getAccentColor()}">INVOICE</div>
+          <div style="margin-top:8px"># <span class="editable invoice-no">${escapeHtml(num)}</span></div>
+          <div>Ref: <span class="editable invoice-ref">${escapeHtml(ref)}</span></div>`;
+        el.appendChild(wrapper);
+        // inline editing
+        wrapper.querySelectorAll('.editable').forEach(node => { node.contentEditable = true; node.addEventListener('input', ()=>{ const text = node.textContent || ''; if(node.classList.contains('invoice-no')) { block.settings.number = text; invoiceNumber.value = text; } if(node.classList.contains('invoice-ref')) { block.settings.ref = text; invoiceRef.value = text; } saveBlocks(); }); });
+        break;
+      }
+
+      case 'dates': {
+        const issue = block.settings.issue || dateIssue.value || '';
+        const due = block.settings.due || dateDue.value || '';
+        const w = document.createElement('div');
+        w.innerHTML = `<div>Issue: <span class="editable issue">${escapeHtml(issue)}</span></div><div>Due: <span class="editable due">${escapeHtml(due)}</span></div>`;
+        el.appendChild(w);
+        w.querySelectorAll('.editable').forEach(node=>{ node.contentEditable = true; node.addEventListener('input', ()=>{ const t=node.textContent||''; if(node.classList.contains('issue')){ block.settings.issue = t; dateIssue.value=t; } if(node.classList.contains('due')){ block.settings.due = t; dateDue.value=t; } saveBlocks(); }); });
+        break;
+      }
+
+      case 'from': {
+        const txt = block.settings.text || fromText.value || '';
+        const w = document.createElement('div'); w.innerHTML = `<div style="font-weight:700">From</div><div class="companyBlock editable from-text">${escapeHtml(txt)}</div>`;
+        el.appendChild(w);
+        w.querySelector('.from-text').contentEditable = true; w.querySelector('.from-text').addEventListener('input', ()=>{ block.settings.text = w.querySelector('.from-text').textContent || ''; fromText.value = block.settings.text; saveBlocks(); });
+        break;
+      }
+
+      case 'to': {
+        const txt = block.settings.text || toText.value || '';
+        const w = document.createElement('div'); w.innerHTML = `<div style="font-weight:700">Bill To</div><div class="billTo editable to-text">${escapeHtml(txt)}</div>`;
+        el.appendChild(w);
+        w.querySelector('.to-text').contentEditable = true; w.querySelector('.to-text').addEventListener('input', ()=>{ block.settings.text = w.querySelector('.to-text').textContent || ''; toText.value = block.settings.text; saveBlocks(); });
+        break;
+      }
+
+      case 'items': {
+        const rows = (block.settings.rows && block.settings.rows.length) ? block.settings.rows : gatherQuickRows();
+        let table = document.createElement('table'); table.className='itemsTable';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th style="width:56%">Description</th><th style="width:12%">Qty</th><th style="width:12%">Unit</th><th style="width:20%">Line</th></tr>'; table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        rows.forEach((r, i)=>{
+          const tr = document.createElement('tr');
+          const line = (Number(r.qty||0) * Number(r.price||0)) || 0;
+          tr.innerHTML = `<td contenteditable="true" class="item-desc">${escapeHtml(r.desc)}</td><td contenteditable="true" class="item-qty" style="text-align:right">${Number(r.qty||0)}</td><td contenteditable="true" class="item-unit">${escapeHtml(r.unit||'')}</td><td style="text-align:right">${formatMoney(line, totalsCurrency())}</td>`;
+          // inline edit handlers
+          tr.querySelector('.item-desc').addEventListener('input', e=>{ r.desc = e.target.textContent || ''; saveBlocks(); renderInvoice(); });
+          tr.querySelector('.item-qty').addEventListener('input', e=>{ r.qty = parseFloat(e.target.textContent||0) || 0; saveBlocks(); renderInvoice(); });
+          tr.querySelector('.item-unit').addEventListener('input', e=>{ r.unit = e.target.textContent || ''; saveBlocks(); renderInvoice(); });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        el.appendChild(table);
+        break;
+      }
+
+      case 'totals': {
+        const itemsBlock = blocks.find(x=>x.key==='items');
+        const rows = (itemsBlock && itemsBlock.settings.rows && itemsBlock.settings.rows.length>0) ? itemsBlock.settings.rows : gatherQuickRows();
+        const subtotal = rows.reduce((s,r)=> s + ((Number(r.qty||0) * Number(r.price||0)) || 0), 0);
+        const vat = Number(block.settings.vat||0); const vatAmt = subtotal * (vat/100);
+        let discount = 0; if(block.settings.discountMode==='percent') discount = subtotal * (Number(block.settings.discountVal||0)/100); else if(block.settings.discountMode==='fixed') discount = Number(block.settings.discountVal||0);
+        const total = subtotal + vatAmt - discount;
+        const cur = block.settings.currency || totalsCurrency();
+        const div = document.createElement('div'); div.className='totalsBox';
+        div.innerHTML = `<table style="width:100%"><tr><td>Subtotal</td><td style="text-align:right">${formatMoney(subtotal,cur)}</td></tr><tr><td>VAT (${vat}%)</td><td style="text-align:right">${formatMoney(vatAmt,cur)}</td></tr><tr><td>Discount</td><td style="text-align:right">-${formatMoney(discount,cur)}</td></tr><tr style="font-weight:800"><td>Total</td><td style="text-align:right">${formatMoney(total,cur)}</td></tr></table>`; el.appendChild(div);
+        break;
+      }
+
+      case 'notes': {
+        const t = block.settings.text || notesQuick.value || '';
+        const w = document.createElement('div'); w.innerHTML = `<div style="font-weight:700">Notes</div><div class="editable notes-text">${escapeHtml(t)}</div>`; el.appendChild(w);
+        w.querySelector('.notes-text').contentEditable = true; w.querySelector('.notes-text').addEventListener('input', ()=>{ block.settings.text = w.querySelector('.notes-text').textContent || ''; notesQuick.value = block.settings.text; saveBlocks(); });
+        break;
+      }
+
+      default:
+        el.textContent = block.label;
+    }
+
+    if(block.layout === 'row'){
+      rowBuffer.push(el);
+      if(rowBuffer.length >= 2) flushRow();
+    } else {
+      flushRow();
+      invoiceInner.appendChild(el);
+    }
+  });
+
+  flushRow();
+  // ensure sheet zoom matches controls
+  const s = parseFloat(zoomSelect.value || 1);
+  document.getElementById('sheet').style.transform = `scale(${s})`;
+}
+
+/* ---------------------------
+   Quick helpers & right-panel sync
+   --------------------------- */
+function escapeHtml(s){ if(s===undefined||s===null) return ''; return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function formatMoney(n, currency='EUR'){ const sym = currency==='USD' ? '$' : currency==='GBP' ? '£' : '€'; return sym + ' ' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function totalsCurrency(){ const t = blocks.find(b=>b.key==='totals'); return (t && t.settings.currency) ? t.settings.currency : 'EUR'; }
+function gatherQuickRows(){ const rows=[]; [...quickItems.querySelectorAll('tr')].forEach(tr=>{ const desc = tr.querySelector('.qdesc').value || ''; const qty = parseFloat(tr.querySelector('.qqty').value||0)||0; const unit = tr.querySelector('.qunit') ? tr.querySelector('.qunit').value : ''; const price = parseFloat(tr.querySelector('.qprice').value||0)||0; rows.push({desc,qty,unit,price}); }); return rows; }
+
+/* Quick panel event wiring */
+logoFile.addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ const b = blocks.find(x=>x.key==='logo'); b.settings.src = ev.target.result; renderInvoice(); saveBlocks(); }; r.readAsDataURL(f); });
+logoAlign.addEventListener('change', e=>{ const b = blocks.find(x=>x.key==='logo'); b.settings.align = e.target.value; renderInvoice(); saveBlocks(); });
+
+invoiceNumber.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='invoiceDetails'); if(b){ b.settings.number = e.target.value; renderInvoice(); saveBlocks(); }});
+invoiceRef.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='invoiceDetails'); if(b){ b.settings.ref = e.target.value; renderInvoice(); saveBlocks(); }});
+
+dateIssue.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='dates'); if(b){ b.settings.issue = e.target.value; renderInvoice(); saveBlocks(); }});
+dateDue.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='dates'); if(b){ b.settings.due = e.target.value; renderInvoice(); saveBlocks(); }});
+
+fromText.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='from'); if(b){ b.settings.text = e.target.value; renderInvoice(); saveBlocks(); }});
+toText.addEventListener('input', e=>{ const b = blocks.find(x=>x.key==='to'); if(b){ b.settings.text = e.target.value; renderInvoice(); saveBlocks(); }});
+
+/* Quick items */
+addQuickItem.addEventListener('click', ()=>{ addQuickRow('Item',1,'',0); renderInvoice(); });
+clearQuickItems.addEventListener('click', ()=>{ quickItems.innerHTML=''; renderInvoice(); });
+
+currencySelect.addEventListener('change', e=>{ const t = blocks.find(b=>b.key==='totals'); if(t){ t.settings.currency = e.target.value; renderInvoice(); saveBlocks(); }});
+vatVal.addEventListener('input', e=>{ const t = blocks.find(b=>b.key==='totals'); if(t){ t.settings.vat = parseFloat(e.target.value||0); renderInvoice(); saveBlocks(); }});
+discountMode.addEventListener('change', e=>{ const t = blocks.find(b=>b.key==='totals'); if(t){ t.settings.discountMode = e.target.value; renderInvoice(); saveBlocks(); }});
+discountVal.addEventListener('input', e=>{ const t = blocks.find(b=>b.key==='totals'); if(t){ t.settings.discountVal = parseFloat(e.target.value||0); renderInvoice(); saveBlocks(); }});
+notesQuick.addEventListener('input', e=>{ const t = blocks.find(b=>b.key==='notes'); if(t){ t.settings.text = e.target.value; renderInvoice(); saveBlocks(); }});
+
+/* Quick items: create a new row in quick panel */
+function addQuickRow(desc='', qty=1, unit='', price=0){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="input qdesc" value="${escapeHtml(desc)}" /></td><td><input class="input qqty" type="number" value="${qty}" style="width:70px" /></td><td><input class="input qunit" value="${escapeHtml(unit)}" style="width:90px" /></td><td><input class="input qprice" type="number" value="${price}" style="width:110px" /></td><td><button class="smallBtn rem">✖</button></td>`;
+  quickItems.appendChild(tr);
+  tr.querySelector('.rem').addEventListener('click', ()=>{ tr.remove(); renderInvoice(); });
+  ['input'].forEach(ev=>{ tr.querySelector('.qdesc').addEventListener('input', renderInvoice); tr.querySelector('.qqty').addEventListener('input', renderInvoice); tr.querySelector('.qunit').addEventListener('input', renderInvoice); tr.querySelector('.qprice').addEventListener('input', renderInvoice); });
+}
+
+/* ---------------------------
+   Exports: JSON, CSV, XLSX, PDF
+   --------------------------- */
+downloadJsonBtn.addEventListener('click', ()=>{ const out = collectExport(); downloadFile('invoice.json', JSON.stringify(out, null,2), 'application/json'); });
+downloadCsvBtn.addEventListener('click', ()=>{ downloadCSVInvoice(); });
+
+exportJsonBtn.addEventListener('click', ()=>{ const out = collectExport(); downloadFile('invoice_full.json', JSON.stringify(out, null,2), 'application/json'); });
+exportXlsxBtn.addEventListener('click', ()=>{ exportXLSX(); });
+exportPdfBtn.addEventListener('click', ()=>{ exportPDF(); });
+
+function collectExport(){
+  const itemsBlock = blocks.find(b=>b.key==='items');
+  const items = (itemsBlock && itemsBlock.settings.rows && itemsBlock.settings.rows.length>0) ? itemsBlock.settings.rows : gatherQuickRows();
+  const totals = blocks.find(b=>b.key==='totals');
+  const details = blocks.find(b=>b.key==='invoiceDetails');
+  const dates = blocks.find(b=>b.key==='dates');
+  return {
+    meta: { name: templateNameInput.value || 'Invoice' },
+    invoice: {
+      invoiceNo: (details && details.settings.number) || invoiceNumber.value,
+      ref: (details && details.settings.ref) || invoiceRef.value,
+      issueDate: (dates && dates.settings.issue) || dateIssue.value,
+      dueDate: (dates && dates.settings.due) || dateDue.value,
+      from: (blocks.find(b=>b.key==='from').settings.text) || fromText.value,
+      to: (blocks.find(b=>b.key==='to').settings.text) || toText.value,
+      currency: (totals && totals.settings.currency) || currencySelect.value,
+      items,
+      totals: { vat: totals.settings.vat || 0, discountMode: totals.settings.discountMode || 'none', discountVal: totals.settings.discountVal || 0 },
+      notes: (blocks.find(b=>b.key==='notes').settings.text) || notesQuick.value
+    },
+    blocks
+  };
+}
+function downloadFile(filename, data, mime='application/json'){ const blob = new Blob([data], {type:mime}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },500); }
+
+function downloadCSVInvoice(){
+  const out = collectExport().invoice;
+  const lines = [];
+  lines.push(['Invoice No', out.invoiceNo || ''].join(','));
+  lines.push(['Date', out.issueDate || ''].join(','));
+  lines.push(['Due', out.dueDate || ''].join(','));
+  lines.push(['From', `"${(out.from||'').replace(/"/g,'""')}"`].join(','));
+  lines.push(['To', `"${(out.to||'').replace(/"/g,'""')}"`].join(','));
+  lines.push('');
+  lines.push(['Description','Qty','Unit','Unit Price','Line Total'].join(','));
+  out.items.forEach(it => { lines.push([`"${(it.desc||'').replace(/"/g,'""')}"`, it.qty, `"${(it.unit||'').replace(/"/g,'""')}"`, (it.price||0).toFixed(2), ((it.qty||0)*(it.price||0)).toFixed(2)].join(',')); });
+  const csv = lines.join('\r\n');
+  downloadFile('invoice.csv', csv, 'text/csv');
+}
+
+function exportXLSX(){
+  const out = collectExport().invoice;
+  const wb = XLSX.utils.book_new();
+  const rows = [['Description','Qty','Unit','Unit Price','Line Total']];
+  out.items.forEach(it=> rows.push([it.desc, it.qty, it.unit, it.price, (it.qty*it.price)]));
+  rows.push([]); rows.push(['Subtotal', computeSubtotal(out.items)]);
+  rows.push(['VAT', (computeSubtotal(out.items) * (out.totals.vat/100)).toFixed(2)]);
+  rows.push(['Total', (computeTotal(out.items, out.totals)).toFixed(2)]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  downloadFile('invoice.xlsx', wbout, 'application/octet-stream');
+}
+
+function computeSubtotal(items){ return items.reduce((s,i)=> s + ((Number(i.qty||0) * Number(i.price||0))||0), 0); }
+function computeTotal(items, totals){ const subtotal = computeSubtotal(items); const vatAmt = subtotal * ((totals.vat||0)/100); let discount = 0; if(totals.discountMode==='percent') discount = subtotal * ((totals.discountVal||0)/100); else if(totals.discountMode==='fixed') discount = Number(totals.discountVal||0); return subtotal + vatAmt - discount; }
+
+/* PDF export using html2canvas + jsPDF (A4) */
+async function exportPDF(){
+  // ensure invoice rendered at scale 1 for capture
+  const sheetEl = document.getElementById('sheet');
+  const prevTransform = sheetEl.style.transform;
+  sheetEl.style.transform = 'scale(1)';
+  await new Promise(r => setTimeout(r,150)); // brief wait for layout
+  const canvas = await html2canvas(invoiceInner, { scale:2, useCORS:true, allowTaint:true, logging:false });
+  const imgData = canvas.toDataURL('image/png');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p','pt','a4');
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = pdf.internal.pageSize.getHeight();
+  // fit image to page width
+  const imgW = canvas.width;
+  const imgH = canvas.height;
+  const ratio = Math.min(pdfW / imgW, pdfH / imgH);
+  const w = imgW * ratio;
+  const h = imgH * ratio;
+  pdf.addImage(imgData, 'PNG', (pdfW - w)/2, 20, w, h);
+  pdf.save((templateNameInput.value || 'invoice') + '.pdf');
+  sheetEl.style.transform = prevTransform;
+}
+
+/* ---------------------------
+   Templates save/load
+   --------------------------- */
+saveTemplateBtn.addEventListener('click', ()=>{ const tname = templateNameInput.value || ('Template ' + new Date().toLocaleString()); const all = JSON.parse(localStorage.getItem(TEMPLATES_KEY)||'[]'); all.push({id:Date.now(), name:tname, blocks}); localStorage.setItem(TEMPLATES_KEY, JSON.stringify(all)); alert('Template saved locally'); });
+loadTemplateBtn.addEventListener('click', ()=>{ const all = JSON.parse(localStorage.getItem(TEMPLATES_KEY)||'[]'); if(all.length === 0){ alert('No templates saved'); return; } const list = all.map((t,i)=> `${i+1}. ${t.name}`).join('\n'); const pick = prompt('Saved templates:\n' + list + '\n\nEnter number to load'); const idx = parseInt(pick)-1; if(!isNaN(idx) && all[idx]){ blocks = JSON.parse(JSON.stringify(all[idx].blocks)); buildBlocksUI(); renderInvoice(); saveBlocks(); templateNameInput.value = all[idx].name; } });
+
+presetModern.addEventListener('click', ()=>{ loadPreset('modern'); });
+presetMinimal.addEventListener('click', ()=>{ loadPreset('minimal'); });
+
+function loadPreset(name){
+  loadBlocks(); // reset
+  if(name==='modern'){
+    blocks.find(b=>b.key==='logo').settings.src=''; blocks.find(b=>b.key==='items').settings.rows=[{desc:'Consult',qty:10,unit:'hrs',price:80}]; blocks.find(b=>b.key==='totals').settings.vat=20;
+  } else {
+    blocks.find(b=>b.key==='items').settings.rows=[{desc:'Service',qty:1,unit:'',price:490}]; blocks.find(b=>b.key==='totals').settings.vat=0;
+  }
+  buildBlocksUI(); renderInvoice(); saveBlocks();
+}
+
+/* ---------------------------
+   Helpers: numeric & init
+   --------------------------- */
+function totalsCurrency(){ const t = blocks.find(b=>b.key==='totals'); return t && t.settings.currency ? t.settings.currency : 'EUR'; }
+function saveBlocksAndRender(){ saveBlocks(); renderInvoice(); }
+
+/* initialize app */
+function init(){
+  loadBlocks();
+  buildBlocksUI();
+  // populate quick panel from blocks if available
+  const bLogo = blocks.find(b=>b.key==='logo'); if(bLogo && bLogo.settings.align) logoAlign.value = bLogo.settings.align;
+  const bTotals = blocks.find(b=>b.key==='totals'); if(bTotals){ vatVal.value = bTotals.settings.vat || 0; currencySelect.value = bTotals.settings.currency || 'EUR'; discountMode.value = bTotals.settings.discountMode || 'none'; discountVal.value = bTotals.settings.discountVal || 0; }
+  // quick items: from items block if present
+  const itemsBloc = blocks.find(b=>b.key==='items'); if(itemsBloc && itemsBloc.settings.rows && itemsBloc.settings.rows.length>0){ itemsBloc.settings.rows.forEach(r=> addQuickRow(r.desc, r.qty, r.unit, r.price)); } else { addQuickRow('Design work',8,'hrs',45); addQuickRow('Development',12,'hrs',60); }
+  // default dates
+  dateIssue.value = new Date().toISOString().slice(0,10);
+  const d = new Date(); d.setDate(d.getDate()+14); dateDue.value = d.toISOString().slice(0,10);
+  // wire top controls
+  document.getElementById('toggleDrawer').addEventListener('click', ()=> leftPanel.classList.toggle('hidden'));
+  document.getElementById('zoomSelectTop').addEventListener('change', ()=> { zoomSelect.value = document.getElementById('zoomSelectTop').value; document.getElementById('sheet').style.transform = `scale(${zoomSelect.value})`; });
+  // render
+  renderInvoice();
+}
+init();
+
+/* small utility to get accent color */
+function getAccentColor(){ return getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#4fc3f7'; }
+
+</script>
+</body>
+</html>
