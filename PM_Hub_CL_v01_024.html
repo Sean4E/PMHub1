@@ -3642,7 +3642,11 @@
                             document.getElementById('statusText').textContent = 'Connected';
                             document.getElementById('connectBtn').textContent = 'Disconnect';
                             document.getElementById('connectBtn').onclick = disconnect;
-                            document.getElementById('syncDriveBtn').style.display = 'inline-block';
+
+                            const syncDriveBtn = document.getElementById('syncDriveBtn');
+                            if (syncDriveBtn) {
+                                syncDriveBtn.style.display = 'inline-block';
+                            }
 
                             // Load Google services
                             console.log('📂 Loading Drive folders and Calendar events...');
