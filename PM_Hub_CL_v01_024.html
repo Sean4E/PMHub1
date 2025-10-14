@@ -303,6 +303,24 @@
             font-size: 12px;
         }
 
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-danger);
+            border-radius: 8px;
+            color: var(--accent-danger);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: var(--accent-danger);
+            color: white;
+            transform: translateY(-1px);
+        }
+
         .area-tabs {
             display: flex;
             gap: 8px;
@@ -1397,6 +1415,9 @@
             </button>
             <button class="btn btn-primary" onclick="connectServices()" id="connectBtn" style="margin-left: 12px;">
                 Connect Google
+            </button>
+            <button class="logout-btn" onclick="logout()" style="margin-left: 8px;" title="Logout">
+                Logout
             </button>
         </div>
     </header>
@@ -6811,6 +6832,13 @@
                 renderNotifications();
             } else {
                 center.style.display = 'none';
+            }
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('pm_hub_current_user');
+                window.location.href = 'index.html';
             }
         }
 
