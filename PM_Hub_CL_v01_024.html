@@ -11,7 +11,7 @@
     <!-- Firebase v10 SDK (Legacy - will be replaced by PM Hub Core) -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, query, where, orderBy, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         // Firebase configuration from Tool Tracker
         const firebaseConfig = {
@@ -25,6 +25,7 @@
 
         let app, db;
         window.firebaseEnabled = false;
+        window.firebaseOfflineEnabled = false;
 
         try {
             app = initializeApp(firebaseConfig);
@@ -32,8 +33,34 @@
             window.firebaseEnabled = true;
             window.db = db;
             window.firestore = { collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, query, where, orderBy };
-            console.log('Firebase initialized successfully');
-            
+            console.log('✅ Firebase initialized successfully');
+
+            // Enable offline persistence for multi-tab support
+            // This allows Firebase to queue writes when offline and sync when back online
+            enableMultiTabIndexedDbPersistence(db)
+                .then(() => {
+                    window.firebaseOfflineEnabled = true;
+                    console.log('✅ Firebase offline persistence enabled (multi-tab)');
+                })
+                .catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                        // Multiple tabs open, persistence can only be enabled in one tab at a time
+                        console.warn('⚠️ Firebase persistence: Multiple tabs open, using single-tab mode');
+                        return enableIndexedDbPersistence(db);
+                    } else if (err.code === 'unimplemented') {
+                        // The current browser doesn't support persistence
+                        console.warn('⚠️ Firebase persistence: Not supported in this browser');
+                    } else {
+                        console.error('❌ Firebase persistence error:', err);
+                    }
+                })
+                .then(() => {
+                    if (!window.firebaseOfflineEnabled) {
+                        window.firebaseOfflineEnabled = true;
+                        console.log('✅ Firebase offline persistence enabled (single-tab)');
+                    }
+                });
+
             // Update Firebase status indicator
             setTimeout(() => {
                 const indicator = document.getElementById('firebase-indicator');
@@ -43,7 +70,7 @@
                 }
             }, 100);
         } catch (error) {
-            console.error('Firebase initialization failed:', error);
+            console.error('❌ Firebase initialization failed:', error);
             console.log('Will use local storage only');
         }
     </script>
@@ -1592,6 +1619,8 @@
             <img id="logoImage" src="" alt="" style="display: none;">
             <h1 id="logoText">PM System Hub Pro</h1>
             <span id="firebase-indicator" class="firebase-indicator" title="Firebase Status"></span>
+            <span id="network-status-indicator" style="margin-left: 8px; font-size: 12px; opacity: 0.8;" title="Network Status">🌐 Online</span>
+            <span id="firebase-sync-indicator" style="display: none; margin-left: 8px; font-size: 12px; opacity: 0.9;" title="Pending Firebase Operations"></span>
             <div id="sync-indicator" style="display: none; margin-left: 12px;"></div>
         </div>
 
@@ -2884,8 +2913,10 @@
             tools: [],
             usedProjectNumbers: [],
             currentYear: new Date().getFullYear(),
-            syncQueue: [],
+            syncQueue: [], // Drive folder sync queue (existing)
+            firebaseSyncQueue: [], // NEW: Firebase operations sync queue
             lastSyncTime: null,
+            lastFirebaseSyncTime: null,
             notifications: [],
             unreadNotifications: 0,
             folderTemplate: [
@@ -3590,6 +3621,286 @@
 
             if (state.syncQueue.length === 0) {
                 showAlert('All offline changes synced to Drive!', 'success');
+            }
+        }
+
+        // ===== FIREBASE SYNC QUEUE SYSTEM =====
+        // This handles Firebase operations that fail due to network issues
+        // Firebase offline persistence handles most cases, but this is a safety net
+
+        function queueFirebaseOperation(operation, data) {
+            const queueItem = {
+                id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+                operation: operation,
+                data: data,
+                timestamp: new Date().toISOString(),
+                retries: 0,
+                maxRetries: 5,
+                status: 'pending'
+            };
+
+            state.firebaseSyncQueue.push(queueItem);
+            console.log(`📋 Queued Firebase operation: ${operation}`, queueItem.id);
+
+            // Save queue to localStorage
+            localStorage.setItem('pm_hub_firebase_queue', JSON.stringify(state.firebaseSyncQueue));
+
+            updateFirebaseSyncIndicator();
+
+            return queueItem.id;
+        }
+
+        async function processFirebaseSyncQueue() {
+            if (!window.firebaseEnabled || state.firebaseSyncQueue.length === 0) {
+                return;
+            }
+
+            console.log(`🔄 Processing ${state.firebaseSyncQueue.length} Firebase operations...`);
+
+            const itemsToProcess = [...state.firebaseSyncQueue];
+
+            for (let item of itemsToProcess) {
+                try {
+                    console.log(`🔄 Processing: ${item.operation}`, item.id);
+
+                    switch (item.operation) {
+                        case 'WRITE_HUB_STATE':
+                            await executeFirebaseWrite(item.data);
+                            break;
+                        case 'ADD_AREA':
+                            await executeAddArea(item.data);
+                            break;
+                        case 'ADD_TASK':
+                            await executeAddTask(item.data);
+                            break;
+                        case 'UPDATE_TASK':
+                            await executeUpdateTask(item.data);
+                            break;
+                        case 'LOG_ACTIVITY':
+                            await executeLogActivity(item.data);
+                            break;
+                        default:
+                            console.warn('Unknown Firebase operation:', item.operation);
+                    }
+
+                    // Remove successfully synced item
+                    state.firebaseSyncQueue = state.firebaseSyncQueue.filter(q => q.id !== item.id);
+                    console.log(`✅ Firebase operation completed: ${item.operation}`, item.id);
+
+                } catch (error) {
+                    console.error(`❌ Firebase operation failed: ${item.operation}`, error);
+                    item.retries = (item.retries || 0) + 1;
+                    item.lastError = error.message;
+
+                    // Remove after max retries
+                    if (item.retries >= item.maxRetries) {
+                        console.error(`Removing from queue after ${item.maxRetries} failed attempts:`, item);
+                        state.firebaseSyncQueue = state.firebaseSyncQueue.filter(q => q.id !== item.id);
+                        showAlert(`Failed to sync ${item.operation} after ${item.maxRetries} attempts`, 'error');
+                    }
+                }
+
+                // Save queue state after each operation
+                localStorage.setItem('pm_hub_firebase_queue', JSON.stringify(state.firebaseSyncQueue));
+            }
+
+            state.lastFirebaseSyncTime = new Date().toISOString();
+            updateFirebaseSyncIndicator();
+
+            if (state.firebaseSyncQueue.length === 0) {
+                console.log('✅ All Firebase operations synced successfully');
+                showAlert('All pending operations synced!', 'success');
+            }
+        }
+
+        // Execute queued Firebase operations
+        async function executeFirebaseWrite(data) {
+            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+            await window.firestore.setDoc(docRef, data);
+        }
+
+        async function executeAddArea(data) {
+            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+            const docSnap = await window.firestore.getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const hubState = docSnap.data();
+                const projectIndex = hubState.projects.findIndex(p => p.id === data.projectId);
+
+                if (projectIndex !== -1) {
+                    if (!hubState.projects[projectIndex].areas) {
+                        hubState.projects[projectIndex].areas = [];
+                    }
+                    hubState.projects[projectIndex].areas.push(data.area);
+
+                    await window.firestore.setDoc(docRef, {
+                        ...hubState,
+                        lastModified: new Date().toISOString(),
+                        lastSyncedBy: data.userId || 'system'
+                    });
+                }
+            }
+        }
+
+        async function executeAddTask(data) {
+            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+            const docSnap = await window.firestore.getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const hubState = docSnap.data();
+                const project = hubState.projects.find(p => p.id === data.projectId);
+
+                if (project) {
+                    const area = project.areas?.find(a => a.id === data.areaId);
+                    if (area) {
+                        if (!area.tasks) area.tasks = [];
+                        area.tasks.push(data.task);
+
+                        await window.firestore.setDoc(docRef, {
+                            ...hubState,
+                            lastModified: new Date().toISOString(),
+                            lastSyncedBy: data.userId || 'system'
+                        });
+                    }
+                }
+            }
+        }
+
+        async function executeUpdateTask(data) {
+            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+            const docSnap = await window.firestore.getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const hubState = docSnap.data();
+                const project = hubState.projects.find(p => p.id === data.projectId);
+
+                if (project) {
+                    const area = project.areas?.find(a => a.id === data.areaId);
+                    if (area && area.tasks) {
+                        const taskIndex = area.tasks.findIndex(t => t.wbs === data.taskWbs);
+                        if (taskIndex !== -1) {
+                            area.tasks[taskIndex] = { ...area.tasks[taskIndex], ...data.updates };
+
+                            await window.firestore.setDoc(docRef, {
+                                ...hubState,
+                                lastModified: new Date().toISOString(),
+                                lastSyncedBy: data.userId || 'system'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        async function executeLogActivity(data) {
+            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+            const docSnap = await window.firestore.getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const hubState = docSnap.data();
+                if (!hubState.activityLog) hubState.activityLog = [];
+                hubState.activityLog.push(data.activity);
+
+                await window.firestore.setDoc(docRef, {
+                    ...hubState,
+                    lastModified: new Date().toISOString()
+                });
+            }
+        }
+
+        // Load Firebase queue from localStorage on startup
+        function loadFirebaseSyncQueue() {
+            try {
+                const saved = localStorage.getItem('pm_hub_firebase_queue');
+                if (saved) {
+                    state.firebaseSyncQueue = JSON.parse(saved);
+                    console.log(`📋 Loaded ${state.firebaseSyncQueue.length} pending Firebase operations from storage`);
+                    if (state.firebaseSyncQueue.length > 0) {
+                        updateFirebaseSyncIndicator();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading Firebase sync queue:', error);
+                state.firebaseSyncQueue = [];
+            }
+        }
+
+        // ===== NETWORK STATUS MONITORING =====
+        function setupNetworkMonitoring() {
+            console.log('🌐 Setting up network monitoring...');
+
+            // Initial status
+            updateNetworkStatus();
+
+            // Listen for online/offline events
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+
+            // Periodic check (every 30 seconds)
+            setInterval(checkNetworkStatus, 30000);
+        }
+
+        function handleOnline() {
+            console.log('🌐 Network connection restored');
+            state.isOnline = true;
+            updateNetworkStatus();
+
+            showAlert('Back online! Syncing pending changes...', 'success');
+
+            // Process both Drive and Firebase queues
+            setTimeout(() => {
+                processSyncQueue(); // Drive folder queue
+                processFirebaseSyncQueue(); // Firebase operations queue
+            }, 1000);
+        }
+
+        function handleOffline() {
+            console.log('🌐 Network connection lost');
+            state.isOnline = false;
+            updateNetworkStatus();
+
+            showAlert('Working offline. Changes will sync when connection restored.', 'warning');
+        }
+
+        async function checkNetworkStatus() {
+            const wasOnline = state.isOnline;
+            state.isOnline = navigator.onLine;
+
+            // If status changed, trigger appropriate handler
+            if (state.isOnline !== wasOnline) {
+                if (state.isOnline) {
+                    handleOnline();
+                } else {
+                    handleOffline();
+                }
+            }
+        }
+
+        function updateNetworkStatus() {
+            const indicator = document.getElementById('network-status-indicator');
+            if (indicator) {
+                if (state.isOnline) {
+                    indicator.innerHTML = '🌐 Online';
+                    indicator.style.color = 'var(--accent-success)';
+                } else {
+                    indicator.innerHTML = '📡 Offline';
+                    indicator.style.color = 'var(--accent-warning)';
+                }
+            }
+        }
+
+        function updateFirebaseSyncIndicator() {
+            const indicator = document.getElementById('firebase-sync-indicator');
+            if (indicator) {
+                const pendingCount = state.firebaseSyncQueue.length;
+
+                if (pendingCount > 0) {
+                    indicator.innerHTML = `📋 ${pendingCount} pending operation${pendingCount > 1 ? 's' : ''}`;
+                    indicator.style.display = 'block';
+                    indicator.style.color = 'var(--accent-warning)';
+                } else {
+                    indicator.style.display = 'none';
+                }
             }
         }
 
@@ -5752,7 +6063,7 @@
                 rate: parseFloat(document.getElementById('areaRate').value) || null,
                 tasks: [],
                 createdAt: new Date().toISOString(),
-                createdBy: currentUser?.name || 'Hub User'
+                createdBy: state.currentUser?.name || 'Hub User'
             };
 
             state.currentProject.areas.push(area);
@@ -5785,8 +6096,8 @@
                                 type: 'AREA_CREATED',
                                 message: `Hub created area: ${name} in ${state.currentProject.name}`,
                                 timestamp: new Date().toISOString(),
-                                userId: currentUser?.id || 'hub',
-                                userName: currentUser?.name || 'Hub User',
+                                userId: state.currentUser?.id || 'hub',
+                                userName: state.currentUser?.name || 'Hub User',
                                 data: {
                                     projectId: state.currentProject.id,
                                     projectName: state.currentProject.name,
@@ -5801,7 +6112,7 @@
                             await window.firestore.setDoc(docRef, {
                                 ...hubState,
                                 lastModified: new Date().toISOString(),
-                                lastSyncedBy: currentUser?.name || 'Hub User'
+                                lastSyncedBy: state.currentUser?.name || 'Hub User'
                             });
 
                             console.log('✅ Hub: Area synced to Firebase in real-time!');
@@ -5810,7 +6121,15 @@
                     }
                 } catch (error) {
                     console.error('❌ Firebase write failed:', error);
-                    showAlert(`Area "${name}" created locally - will sync when connection restored`, 'warning');
+
+                    // Queue the operation for retry
+                    queueFirebaseOperation('ADD_AREA', {
+                        projectId: state.currentProject.id,
+                        area: area,
+                        userId: state.currentUser?.name || 'Hub User'
+                    });
+
+                    showAlert(`Area "${name}" created locally - queued for sync when connection restored`, 'warning');
                 }
             } else {
                 // Fallback to localStorage
@@ -10037,6 +10356,18 @@
                         }
                     });
                     console.log('✓ Admin Hub: Real-time sync initialized');
+                }
+
+                // Initialize network monitoring and sync systems
+                setupNetworkMonitoring();
+                loadFirebaseSyncQueue();
+
+                // Process any pending Firebase operations after a short delay
+                if (state.firebaseSyncQueue.length > 0) {
+                    console.log(`📋 Found ${state.firebaseSyncQueue.length} pending Firebase operations`);
+                    setTimeout(() => {
+                        processFirebaseSyncQueue();
+                    }, 3000);
                 }
             }, 2000); // Wait for full page load
         });
