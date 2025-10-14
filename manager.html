@@ -1976,7 +1976,10 @@
                 console.log('🔥 Manager: Writing clock-in to Firebase in real-time');
                 const success = await firebaseOps.addTimeEntry(timeEntry);
                 if (success) {
-                    await firebaseOps.logActivity('CLOCK_IN', `Manager clocked in to ${selectedProject.name}`);
+                    await firebaseOps.logActivity('CLOCK_IN', `Manager clocked in to ${selectedProject.name}`, {
+                        projectId: selectedProject.id,
+                        projectName: selectedProject.name
+                    });
                     console.log('✅ Manager: Clock-in synced to Firebase - Hub & Worker will see this instantly!');
                     showToast('Clocked in successfully - synced across all apps', 'success');
                 } else {
@@ -2104,7 +2107,12 @@
                 };
 
                 if (firebaseOps) {
-                    await firebaseOps.logActivity('TASK_START', `Manager started working on: ${area.name}`);
+                    await firebaseOps.logActivity('TASK_START', `Manager started working on: ${area.name}`, {
+                        projectId: project.id,
+                        projectName: project.name,
+                        areaId: areaId,
+                        areaName: area.name
+                    });
                 } else {
                     logActivity('TASK_START', `Started working on: ${area.name}`);
                 }

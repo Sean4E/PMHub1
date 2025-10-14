@@ -2054,7 +2054,10 @@
                 console.log('🔥 Worker: Writing clock-in to Firebase in real-time');
                 const success = await firebaseOps.addTimeEntry(timeEntry);
                 if (success) {
-                    await firebaseOps.logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+                    await firebaseOps.logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`, {
+                        projectId: selectedProject.id,
+                        projectName: selectedProject.name
+                    });
                     console.log('✅ Worker: Clock-in synced to Firebase - Manager & Hub will see this instantly!');
                     showToast('Clocked in successfully - synced across all apps', 'success');
                 } else {
@@ -2256,7 +2259,14 @@
                 } else {
                     console.log('🔄 Continuing task:', task.name, '| WBS:', task.wbs);
                     if (firebaseOps) {
-                        await firebaseOps.logActivity('TASK_CONTINUE', `Continuing: ${task.name}`);
+                        await firebaseOps.logActivity('TASK_CONTINUE', `Continuing: ${task.name}`, {
+                            projectId: project.id,
+                            projectName: project.name,
+                            areaId: areaId,
+                            areaName: area.name,
+                            taskWbs: taskWbs,
+                            taskName: task.name
+                        });
                     } else {
                         logActivity('TASK_CONTINUE', `Continuing: ${task.name}`);
                     }
@@ -2272,7 +2282,12 @@
                 };
 
                 if (firebaseOps) {
-                    await firebaseOps.logActivity('TASK_START', `Started working on: ${area.name}`);
+                    await firebaseOps.logActivity('TASK_START', `Started working on: ${area.name}`, {
+                        projectId: project.id,
+                        projectName: project.name,
+                        areaId: areaId,
+                        areaName: area.name
+                    });
                 } else {
                     logActivity('TASK_START', `Started working on: ${area.name}`);
                 }
@@ -2457,7 +2472,10 @@
                 // Project no longer exists
                 console.log('⚠️ Project no longer available');
                 if (firebaseOps) {
-                    await firebaseOps.logActivity('NAVIGATION', 'Project no longer available - requesting new project');
+                    await firebaseOps.logActivity('NAVIGATION', 'Project no longer available - requesting new project', {
+                        projectId: state.currentProjectId || 'unknown',
+                        projectName: 'Unknown Project'
+                    });
                 }
                 showNoWorkAvailable('Project no longer available. Please clock in to a new project.');
                 return;
