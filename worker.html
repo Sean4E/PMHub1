@@ -48,6 +48,9 @@
     <!-- PM Hub Emoji Picker -->
     <script src="pm-hub-emoji.js"></script>
 
+    <!-- PM Hub Firebase Operations -->
+    <script src="pm-hub-firebase.js"></script>
+
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
@@ -1050,6 +1053,9 @@
         // Emoji Picker
         let emojiPicker = null;
 
+        // Firebase Operations
+        let firebaseOps = null;
+
         // Helper function to check if task is assigned to current user
         function isTaskAssignedToMe(task) {
             if (!currentUser) return false;
@@ -1649,6 +1655,18 @@
                     });
                     console.log('✓ Worker: Emoji picker initialized');
                 }
+
+                // Initialize Firebase operations
+                if (window.firebaseEnabled && window.db && window.firestore && typeof PMHubFirebase !== 'undefined') {
+                    firebaseOps = new PMHubFirebase({
+                        db: window.db,
+                        firestore: window.firestore,
+                        currentUser: currentUser
+                    });
+                    console.log('✓ Worker: Firebase operations initialized');
+                } else {
+                    console.warn('⚠️ Worker: Firebase operations not available');
+                }
             }, 1000);
         }
 
@@ -2043,21 +2061,34 @@
             selectedProject = hubState.projects.find(p => p.id == projectId);
             clockedInTime = new Date();
 
-            // Save time entry
-            if (!hubState.timeEntries) hubState.timeEntries = [];
-            hubState.timeEntries.push({
+            const timeEntry = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
                 projectId: projectId,
                 type: 'in',
                 timestamp: clockedInTime.toISOString()
-            });
+            };
 
-            // Log activity
-            logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+            // 🔥 REAL-TIME: Write directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Worker: Writing clock-in to Firebase in real-time');
+                const success = await firebaseOps.addTimeEntry(timeEntry);
+                if (success) {
+                    await firebaseOps.logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+                    console.log('✅ Worker: Clock-in synced to Firebase - Manager & Hub will see this instantly!');
+                    showToast('Clocked in successfully - synced across all apps', 'success');
+                } else {
+                    showToast('Clock-in saved locally - will sync when connection is restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.timeEntries) hubState.timeEntries = [];
+                hubState.timeEntries.push(timeEntry);
+                logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+                await saveHubState();
+            }
 
-            await saveHubState();
             showTaskSelection();
             document.getElementById('clock-out-fixed-btn').style.display = 'block';
         }
@@ -2194,14 +2225,6 @@
 
                 // Only update start time if task is not already in progress
                 const isContinuing = task.status === 'progress' && task.startedBy === currentUser.name;
-                if (!isContinuing) {
-                    task.status = 'progress';
-                    task.startedAt = new Date().toISOString();
-                    task.startedBy = currentUser.name;
-                    console.log('✓ Task started:', task.name, '| Status:', task.status, '| WBS:', task.wbs);
-                } else {
-                    console.log('🔄 Continuing task:', task.name, '| WBS:', task.wbs);
-                }
 
                 // Store full task object with all properties (including conversation)
                 currentTask = {
@@ -2212,10 +2235,52 @@
                     areaName: area.name
                 };
 
-                if (isContinuing) {
-                    logActivity('TASK_CONTINUE', `Continuing: ${task.name}`);
+                // 🔥 REAL-TIME: Write task status directly to Firebase
+                if (!isContinuing) {
+                    if (firebaseOps) {
+                        console.log('🔥 Worker: Starting task in Firebase - Manager & Hub will see this instantly!');
+                        const success = await firebaseOps.updateTask(
+                            project.id,
+                            areaId,
+                            taskWbs,
+                            {
+                                status: 'progress',
+                                startedAt: new Date().toISOString(),
+                                startedBy: currentUser.name
+                            },
+                            'TASK_START',
+                            `Started: ${task.name}`
+                        );
+
+                        if (success) {
+                            // Update local task object to match Firebase
+                            task.status = 'progress';
+                            task.startedAt = currentTask.startedAt || new Date().toISOString();
+                            task.startedBy = currentUser.name;
+                            currentTask.status = 'progress';
+                            currentTask.startedAt = task.startedAt;
+                            currentTask.startedBy = currentUser.name;
+                            console.log('✅ Worker: Task started and synced in real-time!');
+                            showToast(`Task started - Manager & Hub updated instantly!`, 'success');
+                        } else {
+                            showToast('Task started locally - will sync when connection restored', 'warning');
+                        }
+                    } else {
+                        // Fallback to localStorage
+                        task.status = 'progress';
+                        task.startedAt = new Date().toISOString();
+                        task.startedBy = currentUser.name;
+                        logActivity('TASK_START', `Started: ${task.name}`);
+                        await saveHubState('projects');
+                    }
+                    console.log('✓ Task started:', task.name, '| Status:', task.status, '| WBS:', task.wbs);
                 } else {
-                    logActivity('TASK_START', `Started: ${task.name}`);
+                    console.log('🔄 Continuing task:', task.name, '| WBS:', task.wbs);
+                    if (firebaseOps) {
+                        await firebaseOps.logActivity('TASK_CONTINUE', `Continuing: ${task.name}`);
+                    } else {
+                        logActivity('TASK_CONTINUE', `Continuing: ${task.name}`);
+                    }
                 }
             } else {
                 // Starting area without specific task (general work)
@@ -2227,10 +2292,13 @@
                     name: area.name
                 };
 
-                logActivity('TASK_START', `Started working on: ${area.name}`);
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('TASK_START', `Started working on: ${area.name}`);
+                } else {
+                    logActivity('TASK_START', `Started working on: ${area.name}`);
+                }
             }
 
-            await saveHubState('projects'); // Broadcast task start to hub
             showActiveTask();
         }
 
@@ -2277,35 +2345,81 @@
                     actualHours = Math.round(hoursWorked * 10) / 10;
                 }
 
-                task.status = 'done';
-                task.completed = true;
-                task.completedAt = new Date().toISOString();
-                task.completedBy = currentUser.name;
-                task.actualHours = actualHours;
+                const completedAt = new Date().toISOString();
+
+                // 🔥 REAL-TIME: Write task completion directly to Firebase
+                if (firebaseOps) {
+                    console.log('🔥 Worker: Completing task in Firebase - Manager & Hub will see this instantly!');
+                    const success = await firebaseOps.updateTask(
+                        project.id,
+                        currentTask.areaId,
+                        currentTask.wbs,
+                        {
+                            status: 'done',
+                            completed: true,
+                            completedAt: completedAt,
+                            completedBy: currentUser.name,
+                            actualHours: actualHours
+                        },
+                        'TASK_COMPLETE',
+                        `Completed: ${task.name}`
+                    );
+
+                    if (success) {
+                        // Update local task object to match Firebase
+                        task.status = 'done';
+                        task.completed = true;
+                        task.completedAt = completedAt;
+                        task.completedBy = currentUser.name;
+                        task.actualHours = actualHours;
+                        console.log('✅ Worker: Task completed and synced in real-time!');
+                        showToast(`Task completed - Manager & Hub updated instantly! (${actualHours}h)`, 'success');
+
+                        // Check if area is complete
+                        const allTasks = area.tasks || [];
+                        const completedTasks = allTasks.filter(t => t.completed);
+                        if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
+                            await firebaseOps.logActivity('AREA_COMPLETE', `Area "${area.name}" is 100% complete`, {
+                                billable: area.billable,
+                                requiresInvoice: area.billable
+                            });
+                        }
+                    } else {
+                        showToast('Task completed locally - will sync when connection restored', 'warning');
+                    }
+                } else {
+                    // Fallback to localStorage
+                    task.status = 'done';
+                    task.completed = true;
+                    task.completedAt = completedAt;
+                    task.completedBy = currentUser.name;
+                    task.actualHours = actualHours;
+
+                    logActivity('TASK_COMPLETE', `Completed: ${task.name}`, {
+                        hours: actualHours,
+                        billable: area.billable,
+                        taskName: task.name,
+                        projectCode: project.code,
+                        areaName: area.name,
+                        completedBy: currentUser.name
+                    });
+
+                    // Check if area is complete
+                    const allTasks = area.tasks || [];
+                    const completedTasks = allTasks.filter(t => t.completed);
+                    if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
+                        logActivity('AREA_COMPLETE', `Area "${area.name}" is 100% complete`, {
+                            billable: area.billable,
+                            requiresInvoice: area.billable
+                        });
+                    }
+
+                    await saveHubState('projects');
+                }
 
                 console.log('✓ Task marked as completed:', task.name, '| Status:', task.status, '| WBS:', task.wbs, '| Hours:', actualHours);
-
-                logActivity('TASK_COMPLETE', `Completed: ${task.name}`, {
-                    hours: actualHours,
-                    billable: area.billable,
-                    taskName: task.name,
-                    projectCode: project.code,
-                    areaName: area.name,
-                    completedBy: currentUser.name
-                });
-
-                // Check if area is complete
-                const allTasks = area.tasks || [];
-                const completedTasks = allTasks.filter(t => t.completed);
-                if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
-                    logActivity('AREA_COMPLETE', `Area "${area.name}" is 100% complete`, {
-                        billable: area.billable,
-                        requiresInvoice: area.billable
-                    });
-                }
             }
 
-            await saveHubState('projects'); // Broadcast task completion to hub
             currentTask = null;
 
             // Smart navigation: Check if there are more tasks available
@@ -2576,15 +2690,12 @@ End of Report
                 console.log('ℹ️ No captured media - text-only report');
             }
 
-            // Save report to hubState
-            if (!hubState.reports) hubState.reports = [];
-
             // Get project info from currentTask or hubState
             const projectInfo = currentTask && currentTask.projectId
                 ? hubState.projects?.find(p => p.id == currentTask.projectId)
                 : null;
 
-            hubState.reports.push({
+            const report = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
@@ -2601,18 +2712,32 @@ End of Report
                 mediaStoredLocally: mediaStoredLocally,
                 reportsFolderId: reportsFolderId, // Store the folder ID for linking
                 timestamp: new Date().toISOString()
-            });
+            };
 
-            logActivity('REPORT', text || 'Sent media report', {
-                mediaCount: capturedMedia.length,
-                uploadedCount: uploadedFiles.length,
-                task: currentTask ? currentTask.name : 'General',
-                uploaded: !mediaStoredLocally,
-                reportsFolderId: reportsFolderId, // Add folder ID to activity for Hub linking
-                driveFileId: uploadedFiles.length > 0 ? uploadedFiles[0].driveFileId : null // First file for quick access
-            });
-
-            await saveHubState();
+            // 🔥 REAL-TIME: Write report directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Worker: Submitting report to Firebase - Manager & Hub will see this instantly!');
+                const success = await firebaseOps.addPhotoReport(report);
+                if (success) {
+                    console.log('✅ Worker: Report synced to Firebase in real-time!');
+                    showToast('Report submitted - synced across all apps!', 'success');
+                } else {
+                    showToast('Report saved locally - will sync when connection restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.reports) hubState.reports = [];
+                hubState.reports.push(report);
+                logActivity('REPORT', text || 'Sent media report', {
+                    mediaCount: capturedMedia.length,
+                    uploadedCount: uploadedFiles.length,
+                    task: currentTask ? currentTask.name : 'General',
+                    uploaded: !mediaStoredLocally,
+                    reportsFolderId: reportsFolderId,
+                    driveFileId: uploadedFiles.length > 0 ? uploadedFiles[0].driveFileId : null
+                });
+                await saveHubState();
+            }
 
             // Reset button state
             if (submitBtn) {
