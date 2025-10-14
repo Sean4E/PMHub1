@@ -1654,12 +1654,12 @@
                 if (currentMode === 'work') {
                     // Refresh work mode if needed
                     if (selectedProject) {
-                        selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                        selectedProject = hubState.projects?.find(p => p.id === selectedProject.id);
                     }
                 } else if (currentMode === 'manage') {
                     // Refresh management view if needed
                     if (managementProject) {
-                        managementProject = hubState.projects?.find(p => p.id == managementProject.id);
+                        managementProject = hubState.projects?.find(p => p.id === managementProject.id);
 
                         // Refresh the currently active management view
                         if (currentManagementView === 'tasks') {
@@ -1941,7 +1941,7 @@
 
             const lastEntry = todayEntries[todayEntries.length - 1];
             if (lastEntry && lastEntry.type === 'in') {
-                selectedProject = hubState.projects.find(p => p.id == lastEntry.projectId);
+                selectedProject = hubState.projects.find(p => p.id === lastEntry.projectId);
                 clockedInTime = new Date(lastEntry.timestamp);
                 showTaskSelection();
                 document.getElementById('clock-out-fixed-btn').style.display = 'block';
@@ -1968,7 +1968,7 @@
             const projectId = document.getElementById('project-select').value;
             if (!projectId) return;
 
-            selectedProject = hubState.projects.find(p => p.id == projectId);
+            selectedProject = hubState.projects.find(p => p.id === projectId);
             clockedInTime = new Date();
 
             const timeEntry = {
@@ -2029,7 +2029,7 @@
                 return;
             }
 
-            const area = selectedProject.areas.find(a => a.id == areaId);
+            const area = selectedProject.areas.find(a => a.id === areaId);
             if (!area || !area.tasks || area.tasks.length === 0) {
                 startBtn.disabled = false;
                 return;
@@ -2053,8 +2053,8 @@
             const areaId = document.getElementById('area-select').value;
             if (!areaId) return;
 
-            const project = hubState.projects.find(p => p.id == selectedProject.id);
-            const area = project.areas.find(a => a.id == areaId);
+            const project = hubState.projects.find(p => p.id === selectedProject.id);
+            const area = project.areas.find(a => a.id === areaId);
             const taskWbs = document.getElementById('task-select-dropdown').value;
 
             if (taskWbs) {
@@ -2132,8 +2132,8 @@
         async function completeCurrentTask() {
             if (!currentTask) return;
 
-            const project = hubState.projects.find(p => p.id == currentTask.projectId);
-            const area = project.areas.find(a => a.id == currentTask.areaId);
+            const project = hubState.projects.find(p => p.id === currentTask.projectId);
+            const area = project.areas.find(a => a.id === currentTask.areaId);
 
             if (currentTask.wbs) {
                 const task = area.tasks.find(t => t.wbs == currentTask.wbs);
@@ -2634,7 +2634,7 @@ End of Report
             loadHubState();
 
             const projectId = currentTask ? currentTask.projectId : selectedProject.id;
-            const project = hubState.projects?.find(p => p.id == projectId);
+            const project = hubState.projects?.find(p => p.id === projectId);
 
             if (!project) {
                 console.error('Project not found');
@@ -2642,7 +2642,7 @@ End of Report
             }
 
             if (currentTask) {
-                const area = project.areas?.find(a => a.id == currentTask.areaId);
+                const area = project.areas?.find(a => a.id === currentTask.areaId);
                 if (area && area.tasks) {
                     const task = area.tasks.find(t => t.wbs == currentTask.wbs);
                     if (task && task.reportsFolderId) {
@@ -2744,7 +2744,7 @@ End of Report
                 return;
             }
 
-            managementProject = hubState.projects.find(p => p.id == projectId);
+            managementProject = hubState.projects.find(p => p.id === projectId);
         }
 
         // ===== MANAGE AREAS =====
@@ -2973,7 +2973,7 @@ End of Report
                 return;
             }
 
-            const area = managementProject.areas.find(a => a.id == areaId);
+            const area = managementProject.areas.find(a => a.id === areaId);
             if (!area) return;
 
             if (!area.tasks) area.tasks = [];
@@ -3069,7 +3069,7 @@ End of Report
         async function deleteTask(areaId, taskWbs) {
             if (!confirm('Delete this task?')) return;
 
-            const area = managementProject.areas.find(a => a.id == areaId);
+            const area = managementProject.areas.find(a => a.id === areaId);
             if (area && area.tasks) {
                 area.tasks = area.tasks.filter(t => t.wbs !== taskWbs);
             }
@@ -3243,7 +3243,7 @@ End of Report
 
         // ===== EDIT FUNCTIONS =====
         function editTask(areaId, taskWbs) {
-            const area = managementProject.areas.find(a => a.id == areaId);
+            const area = managementProject.areas.find(a => a.id === areaId);
             if (!area) return;
 
             const task = area.tasks.find(t => t.wbs == taskWbs);
@@ -3284,7 +3284,7 @@ End of Report
         async function updateTask() {
             if (!editingTaskAreaId || !editingTaskWbs) return;
 
-            const area = managementProject.areas.find(a => a.id == editingTaskAreaId);
+            const area = managementProject.areas.find(a => a.id === editingTaskAreaId);
             if (!area) return;
 
             const task = area.tasks.find(t => t.wbs == editingTaskWbs);
@@ -3324,7 +3324,7 @@ End of Report
         }
 
         function editArea(areaId) {
-            const area = managementProject.areas.find(a => a.id == areaId);
+            const area = managementProject.areas.find(a => a.id === areaId);
             if (!area) return;
 
             editingAreaId = areaId;
@@ -3338,7 +3338,7 @@ End of Report
         async function updateArea() {
             if (!editingAreaId) return;
 
-            const area = managementProject.areas.find(a => a.id == editingAreaId);
+            const area = managementProject.areas.find(a => a.id === editingAreaId);
             if (!area) return;
 
             const name = document.getElementById('edit-area-name').value.trim();
@@ -3363,7 +3363,7 @@ End of Report
         }
 
         function editTool(toolId) {
-            const tool = hubState.tools.find(t => t.id == toolId);
+            const tool = hubState.tools.find(t => t.id === toolId);
             if (!tool) return;
 
             editingToolId = toolId;
@@ -3377,7 +3377,7 @@ End of Report
         async function updateTool() {
             if (!editingToolId) return;
 
-            const tool = hubState.tools.find(t => t.id == editingToolId);
+            const tool = hubState.tools.find(t => t.id === editingToolId);
             if (!tool) return;
 
             const name = document.getElementById('edit-tool-name').value.trim();
@@ -3403,7 +3403,7 @@ End of Report
 
         function editUser(userId) {
             const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
-            const user = allUsers.find(u => u.id == userId);
+            const user = allUsers.find(u => u.id === userId);
             if (!user) return;
 
             editingUserId = userId;
@@ -3418,9 +3418,9 @@ End of Report
         async function updateUser() {
             if (!editingUserId) return;
 
-            let user = hubState.ourTeam?.find(u => u.id == editingUserId);
+            let user = hubState.ourTeam?.find(u => u.id === editingUserId);
             if (!user) {
-                user = hubState.clientTeam?.find(u => u.id == editingUserId);
+                user = hubState.clientTeam?.find(u => u.id === editingUserId);
             }
             if (!user) return;
 
@@ -3513,7 +3513,7 @@ End of Report
                 return;
             }
 
-            const area = managementProject.areas.find(a => a.id == areaId);
+            const area = managementProject.areas.find(a => a.id === areaId);
             if (!area) return;
 
             const task = area.tasks.find(t => t.wbs == taskWbs);
@@ -4333,7 +4333,7 @@ End of Report
 
                             // WORK MODE: Refresh worker-style views
                             if (currentMode === 'work' && selectedProject) {
-                                selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                                selectedProject = hubState.projects?.find(p => p.id === selectedProject.id);
 
                                 // If on task selection screen, refresh task dropdown
                                 const taskSelectionScreen = document.getElementById('task-selection-screen');
@@ -4347,9 +4347,9 @@ End of Report
 
                                 // If working on a task, update currentTask with latest data
                                 if (currentTask) {
-                                    const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+                                    const project = hubState.projects?.find(p => p.id === currentTask.projectId);
                                     if (project) {
-                                        const area = project.areas?.find(a => a.id == currentTask.areaId);
+                                        const area = project.areas?.find(a => a.id === currentTask.areaId);
                                         if (area) {
                                             const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
                                             if (task) {
@@ -4369,7 +4369,7 @@ End of Report
 
                             // MANAGE MODE: Refresh management views
                             if (currentMode === 'manage' && managementProject) {
-                                managementProject = hubState.projects?.find(p => p.id == managementProject.id);
+                                managementProject = hubState.projects?.find(p => p.id === managementProject.id);
 
                                 // Refresh the entire management view to update all linked data
                                 loadManagementProject();

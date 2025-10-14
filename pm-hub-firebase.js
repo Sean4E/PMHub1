@@ -79,7 +79,7 @@ class PMHubFirebase {
 
             // Find project
             console.log('🔍 Looking for project:', projectId);
-            const project = hubState.projects?.find(p => p.id == projectId);
+            const project = hubState.projects?.find(p => p.id === projectId);
             if (!project) {
                 console.error('❌ Project not found!');
                 console.error('Available projects:', hubState.projects?.map(p => ({ id: p.id, name: p.name })));
@@ -89,7 +89,7 @@ class PMHubFirebase {
 
             // Find area
             console.log('🔍 Looking for area:', areaId);
-            const area = project.areas?.find(a => a.id == areaId);
+            const area = project.areas?.find(a => a.id === areaId);
             if (!area) {
                 console.error('❌ Area not found!');
                 console.error('Available areas:', project.areas?.map(a => ({ id: a.id, name: a.name })));
@@ -99,7 +99,7 @@ class PMHubFirebase {
 
             // Find task
             console.log('🔍 Looking for task:', taskWbs);
-            const task = area.tasks?.find(t => t.wbs == taskWbs);
+            const task = area.tasks?.find(t => t.wbs === taskWbs);
             if (!task) {
                 console.error('❌ Task not found!');
                 console.error('Available tasks:', area.tasks?.map(t => ({ wbs: t.wbs, name: t.name })));

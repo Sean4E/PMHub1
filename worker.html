@@ -1106,7 +1106,7 @@
 
                 // If currently on task selection, reload the project data
                 if (selectedProject) {
-                    const updatedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                    const updatedProject = hubState.projects?.find(p => p.id === selectedProject.id);
                     if (updatedProject) {
                         selectedProject = updatedProject;
                         console.log('✓ Worker: Updated selected project with latest data');
@@ -1125,9 +1125,9 @@
 
                 // If currently working on a task with chat open, refresh chat (BroadcastChannel sync)
                 if (currentTask) {
-                    const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+                    const project = hubState.projects?.find(p => p.id === currentTask.projectId);
                     if (project) {
-                        const area = project.areas?.find(a => a.id == currentTask.areaId);
+                        const area = project.areas?.find(a => a.id === currentTask.areaId);
                         if (area) {
                             const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
                             if (task) {
@@ -1212,7 +1212,7 @@
             // Called when state updates - checks if new tasks were added
             if (!selectedProject || !currentUser) return;
 
-            const project = hubState.projects?.find(p => p.id == selectedProject.id);
+            const project = hubState.projects?.find(p => p.id === selectedProject.id);
             if (!project) return;
 
             let newTaskCount = 0;
@@ -1790,7 +1790,7 @@
             console.log('✓ Hub state reloaded');
 
             // Find project in hubState (not selectedProject reference)
-            const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+            const project = hubState.projects?.find(p => p.id === currentTask.projectId);
             if (!project) {
                 console.error('❌ Project not found in hub state');
                 console.log('Available projects:', hubState.projects?.map(p => ({ id: p.id, name: p.name })));
@@ -1799,7 +1799,7 @@
             console.log('✓ Project Found:', project.name);
             console.log('   - Project Drive Folder ID:', project.driveFolderId || 'MISSING');
 
-            const area = project.areas?.find(a => a.id == currentTask.areaId);
+            const area = project.areas?.find(a => a.id === currentTask.areaId);
             if (!area) {
                 console.error('❌ Area not found');
                 console.log('Available areas:', project.areas?.map(a => ({ id: a.id, name: a.name })));
@@ -1974,7 +1974,7 @@
             const lastEntry = todayEntries[todayEntries.length - 1];
             if (lastEntry && lastEntry.type === 'in') {
                 // User is clocked in
-                selectedProject = hubState.projects.find(p => p.id == lastEntry.projectId);
+                selectedProject = hubState.projects.find(p => p.id === lastEntry.projectId);
                 clockedInTime = new Date(lastEntry.timestamp);
 
                 // Check if user has an in-progress task
@@ -2058,7 +2058,7 @@
             const projectId = document.getElementById('project-select').value;
             if (!projectId) return;
 
-            selectedProject = hubState.projects.find(p => p.id == projectId);
+            selectedProject = hubState.projects.find(p => p.id === projectId);
             clockedInTime = new Date();
 
             const timeEntry = {
@@ -2140,7 +2140,7 @@
                 return;
             }
 
-            const area = selectedProject.areas.find(a => a.id == areaId);
+            const area = selectedProject.areas.find(a => a.id === areaId);
             if (!area || !area.tasks || area.tasks.length === 0) {
                 taskSelectGroup.classList.add('hidden');
                 startBtn.disabled = false; // Can start area without specific task
@@ -2193,13 +2193,13 @@
             }
 
             // Find project in hubState (not selectedProject reference)
-            const project = hubState.projects.find(p => p.id == selectedProject.id);
+            const project = hubState.projects.find(p => p.id === selectedProject.id);
             if (!project) {
                 alert('Project not found');
                 return;
             }
 
-            const area = project.areas.find(a => a.id == areaId);
+            const area = project.areas.find(a => a.id === areaId);
             if (!area) {
                 alert('Area not found');
                 return;
@@ -2316,13 +2316,13 @@
             if (!currentTask) return;
 
             // Find project in hubState (not selectedProject reference)
-            const project = hubState.projects.find(p => p.id == currentTask.projectId);
+            const project = hubState.projects.find(p => p.id === currentTask.projectId);
             if (!project) {
                 alert('Project not found');
                 return;
             }
 
-            const area = project.areas.find(a => a.id == currentTask.areaId);
+            const area = project.areas.find(a => a.id === currentTask.areaId);
             if (!area) {
                 alert('Area not found');
                 return;
@@ -2472,7 +2472,7 @@
             loadHubState();
 
             // Re-find the selected project with latest data
-            selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+            selectedProject = hubState.projects?.find(p => p.id === selectedProject.id);
 
             if (!selectedProject) {
                 // Project no longer exists
@@ -2761,7 +2761,7 @@ End of Report
 
             // Get project info from currentTask or hubState
             const projectInfo = currentTask && currentTask.projectId
-                ? hubState.projects?.find(p => p.id == currentTask.projectId)
+                ? hubState.projects?.find(p => p.id === currentTask.projectId)
                 : null;
 
             const report = {
@@ -3413,13 +3413,13 @@ End of Report
                     const blob = await response.blob();
 
                     // Find folder ID
-                    const project = hubState.projects.find(p => p.id == item.data.projectId);
+                    const project = hubState.projects.find(p => p.id === item.data.projectId);
                     if (!project) continue;
 
                     let folderId = project.driveFolderId;
 
                     if (item.data.areaId && project.areas) {
-                        const area = project.areas.find(a => a.id == item.data.areaId);
+                        const area = project.areas.find(a => a.id === item.data.areaId);
                         if (area && area.driveFolderId) {
                             folderId = area.driveFolderId;
 
@@ -3544,7 +3544,7 @@ End of Report
 
                             // TASK SELECTION SCREEN: Refresh task list
                             if (selectedProject) {
-                                selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
+                                selectedProject = hubState.projects?.find(p => p.id === selectedProject.id);
                                 const taskScreen = document.getElementById('task-selection-screen');
                                 if (taskScreen && !taskScreen.classList.contains('hidden')) {
                                     // Refresh area dropdown (in case areas added/changed)
@@ -3561,9 +3561,9 @@ End of Report
 
                             // ACTIVE TASK SCREEN: Update current task with latest data
                             if (currentTask) {
-                                const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+                                const project = hubState.projects?.find(p => p.id === currentTask.projectId);
                                 if (project) {
-                                    const area = project.areas?.find(a => a.id == currentTask.areaId);
+                                    const area = project.areas?.find(a => a.id === currentTask.areaId);
                                     if (area) {
                                         const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
                                         if (task) {

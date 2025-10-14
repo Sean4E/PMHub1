@@ -4737,7 +4737,7 @@
 
             list.innerHTML = sortedProjects.map(p => {
                 // Get client name from clientId
-                const client = state.clients?.find(c => c.id == p.clientId);
+                const client = state.clients?.find(c => c.id === p.clientId);
                 const clientName = client ? client.companyName : 'No client';
 
                 return `
@@ -4791,8 +4791,8 @@
                 saveState();
             }
             
-            const leadName = p.lead ? state.ourTeam.find(m => m.id == p.lead)?.name || 'Unassigned' : 'Unassigned';
-            const client = state.clients?.find(c => c.id == p.clientId);
+            const leadName = p.lead ? state.ourTeam.find(m => m.id === p.lead)?.name || 'Unassigned' : 'Unassigned';
+            const client = state.clients?.find(c => c.id === p.clientId);
             const clientName = client ? client.companyName : 'N/A';
 
             details.innerHTML = `
@@ -5829,7 +5829,7 @@
 
                         // Update the activity with folder IDs
                         if (task.driveFolderId || task.reportsFolderId) {
-                            const activity = state.activities.find(a => a.id == activityId);
+                            const activity = state.activities.find(a => a.id === activityId);
                             if (activity) {
                                 if (task.driveFolderId) activity.details.driveFolderId = task.driveFolderId;
                                 if (task.reportsFolderId) activity.details.reportsFolderId = task.reportsFolderId;
@@ -7114,7 +7114,7 @@
             const team = type === 'our' ? state.ourTeam : state.clientTeam;
             
             if (id) {
-                const member = team.find(m => m.id == id);
+                const member = team.find(m => m.id === id);
                 member.name = name;
                 member.email = email;
                 member.accessLevel = document.getElementById('memberAccessLevel').value;
@@ -7544,9 +7544,9 @@
 
                                     // Refresh communication hub chat if open
                                     if (currentCommTask) {
-                                        const project = state.projects.find(p => p.id == currentCommTask.projectId);
+                                        const project = state.projects.find(p => p.id === currentCommTask.projectId);
                                         if (project) {
-                                            const area = project.areas?.find(a => a.id == currentCommTask.areaId);
+                                            const area = project.areas?.find(a => a.id === currentCommTask.areaId);
                                             if (area) {
                                                 const task = area.tasks?.find(t => t.wbs == currentCommTask.taskWbs);
                                                 if (task) {
@@ -9380,7 +9380,7 @@
                 return;
             }
 
-            const project = state.projects.find(p => p.id == projectId); // Use == for type coercion
+            const project = state.projects.find(p => p.id === projectId);
             if (!project || !project.areas) {
                 container.innerHTML = '<p style="color: var(--text-tertiary); text-align: center; padding: 20px;">No areas found in this project</p>';
                 updateInvoiceTotal();
@@ -9609,7 +9609,7 @@
                 return;
             }
 
-            const project = state.projects.find(p => p.id == projectId);
+            const project = state.projects.find(p => p.id === projectId);
             if (project && project.areas && project.areas.length > 0) {
                 areaSelect.disabled = false;
                 project.areas.forEach(area => {
@@ -9638,9 +9638,9 @@
                 return;
             }
 
-            const project = state.projects.find(p => p.id == projectId);
+            const project = state.projects.find(p => p.id === projectId);
             if (project) {
-                const area = project.areas.find(a => a.id == areaId);
+                const area = project.areas.find(a => a.id === areaId);
                 if (area && area.tasks && area.tasks.length > 0) {
                     console.log('✅ Found', area.tasks.length, 'tasks in area');
                     taskSelect.disabled = false;
@@ -9683,13 +9683,13 @@
                 return;
             }
 
-            const project = state.projects.find(p => p.id == projectId);
+            const project = state.projects.find(p => p.id === projectId);
             if (!project) {
                 console.error('❌ Project not found:', projectId);
                 return;
             }
 
-            const area = project.areas.find(a => a.id == areaId);
+            const area = project.areas.find(a => a.id === areaId);
             if (!area) {
                 console.error('❌ Area not found:', areaId);
                 return;
