@@ -1034,6 +1034,32 @@
         let qrScanner = null;
         let scannedToolId = null;
 
+        // Helper function to check if task is assigned to current user
+        function isTaskAssignedToMe(task) {
+            if (!currentUser) return false;
+
+            // Check new multi-assignee format
+            if (task.assignees && Array.isArray(task.assignees)) {
+                return task.assignees.some(assignee =>
+                    assignee == currentUser.id || assignee == currentUser.name
+                );
+            }
+
+            // Check old single assignee format (backward compatibility)
+            if (task.assignee) {
+                // Handle comma-separated assignees (from hub display format)
+                if (typeof task.assignee === 'string' && task.assignee.includes(',')) {
+                    const assignees = task.assignee.split(',').map(a => a.trim());
+                    return assignees.some(assignee =>
+                        assignee == currentUser.id || assignee == currentUser.name
+                    );
+                }
+                return task.assignee == currentUser.id || task.assignee == currentUser.name;
+            }
+
+            return false;
+        }
+
         // BroadcastChannel for instant state sync with hub
         const stateChannel = new BroadcastChannel('pm_hub_state');
 
@@ -1166,7 +1192,7 @@
                     if (area.tasks) {
                         area.tasks.forEach(task => {
                             // Check if task is assigned to me, not completed, and recently added (within last 5 mins)
-                            if ((task.assignee == currentUser.id || task.assignee == currentUser.name) &&
+                            if (isTaskAssignedToMe(task) &&
                                 !task.completed &&
                                 task.createdAt) {
                                 const taskAge = Date.now() - new Date(task.createdAt).getTime();
@@ -1895,7 +1921,7 @@
                 if (!area.tasks) continue;
                 for (const task of area.tasks) {
                     // Check if task is assigned to me, in progress, and not completed
-                    if ((task.assignee == currentUser.id || task.assignee == currentUser.name) &&
+                    if (isTaskAssignedToMe(task) &&
                         task.status === 'progress' &&
                         !task.completed &&
                         task.startedBy === currentUser.name) {
@@ -1934,7 +1960,7 @@
                 for (const task of area.tasks) {
                     // Check if task is assigned to me and not completed
                     // Use == for flexible comparison (could be id or name, string or number)
-                    if ((task.assignee == currentUser.id || task.assignee == currentUser.name) && !task.completed) {
+                    if (isTaskAssignedToMe(task) && !task.completed) {
                         return true;
                     }
                 }
@@ -2001,8 +2027,7 @@
 
             for (const task of area.tasks) {
                 // Check if task is assigned to me and not completed
-                // Use == for flexible comparison (could be id or name, string or number)
-                if ((task.assignee == currentUser.id || task.assignee == currentUser.name) && !task.completed) {
+                if (isTaskAssignedToMe(task) && !task.completed) {
                     return true;
                 }
             }
@@ -2035,8 +2060,8 @@
             let myTasksCount = 0;
             area.tasks.forEach(task => {
                 // Only show tasks assigned to ME that are NOT completed
-                // Use == for flexible comparison of assignee (could be id or name, string or number)
-                if ((task.assignee == currentUser.id || task.assignee == currentUser.name) && !task.completed) {
+                // Check if task is assigned to current user
+                if (isTaskAssignedToMe(task) && !task.completed) {
                     const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
                     const isInProgress = task.status === 'progress' && task.startedBy === currentUser.name;
                     const statusText = isInProgress ? ' 🔄 (CONTINUE)' : '';
@@ -2244,7 +2269,7 @@
                 for (const area of selectedProject.areas) {
                     if (area.tasks) {
                         const myIncompleteTasks = area.tasks.filter(t =>
-                            (t.assignee == currentUser.id || t.assignee == currentUser.name) && !t.completed
+                            isTaskAssignedToMe(t) && !t.completed
                         );
 
                         if (myIncompleteTasks.length > 0) {
@@ -2969,7 +2994,7 @@ End of Report
                     if (area.tasks) {
                         const incompleteTasks = area.tasks.filter(t =>
                             t.status === 'inprogress' ||
-                            (t.assignee === currentUser.id && !t.completed)
+                            (isTaskAssignedToMe(t) && !t.completed)
                         );
                         if (incompleteTasks.length > 0) {
                             hasIncompleteTasks = true;

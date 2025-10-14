@@ -1328,8 +1328,9 @@
             <div class="form-group">
                 <label class="form-label">Access Level</label>
                 <select id="new-user-access">
-                    <option value="Worker">Worker</option>
-                    <option value="Manager">Manager</option>
+                    <option value="Worker">Worker (Worker App)</option>
+                    <option value="Manager">Manager (Manager App)</option>
+                    <option value="Admin">Admin (Full Hub)</option>
                 </select>
             </div>
 
@@ -1353,10 +1354,10 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Assign To</label>
-                <select id="edit-task-assignee">
-                    <option value="">-- Select Worker --</option>
-                </select>
+                <label class="form-label">Assign to Team Members</label>
+                <div id="edit-task-assignees" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px; max-height: 200px; overflow-y: auto;">
+                    <!-- Team member checkboxes will be populated here -->
+                </div>
             </div>
 
             <div class="form-group">
@@ -1446,8 +1447,9 @@
             <div class="form-group">
                 <label class="form-label">Access Level</label>
                 <select id="edit-user-access">
-                    <option value="Worker">Worker</option>
-                    <option value="Manager">Manager</option>
+                    <option value="Worker">Worker (Worker App)</option>
+                    <option value="Manager">Manager (Manager App)</option>
+                    <option value="Admin">Admin (Full Hub)</option>
                 </select>
             </div>
 
@@ -2153,8 +2155,13 @@
                     const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
                     const statusBadge = task.completed ? '✅ Done' : task.status === 'progress' ? '🔄 In Progress' : '⏳ Pending';
 
-                    // Display assignee directly (now stored as name, matching hub format)
-                    const assigneeName = task.assignee || 'Unassigned';
+                    // Display assignee(s) - handle both single and multi-assignment
+                    let assigneeName = 'Unassigned';
+                    if (task.assignees && task.assignees.length > 0) {
+                        assigneeName = task.assignees.join(', ');
+                    } else if (task.assignee) {
+                        assigneeName = task.assignee;
+                    }
 
                     // Get unread message count
                     const unreadCount = task.conversation?.messages?.filter(msg =>
@@ -2426,15 +2433,26 @@
             document.getElementById('edit-task-name').value = task.name;
             document.getElementById('edit-task-priority').value = task.priority;
 
-            // Populate assignee selector with names (matching hub format)
-            const assigneeSelect = document.getElementById('edit-task-assignee');
-            assigneeSelect.innerHTML = '<option value="">-- Select Worker --</option>';
-
+            // Populate assignees with checkboxes
+            const assigneesContainer = document.getElementById('edit-task-assignees');
             const allUsers = [...(hubState.ourTeam || []), ...(hubState.clientTeam || [])];
-            allUsers.forEach(user => {
-                const selected = user.name === task.assignee ? 'selected' : '';
-                assigneeSelect.innerHTML += `<option value="${user.name}" ${selected}>${user.name}</option>`;
-            });
+
+            // Convert old single assignee to array format if needed
+            if (task.assignee && typeof task.assignee === 'string' && !task.assignees) {
+                task.assignees = task.assignee.split(',').map(a => a.trim());
+            }
+            const taskAssignees = task.assignees || [];
+
+            if (allUsers.length === 0) {
+                assigneesContainer.innerHTML = '<p style="color: var(--text-tertiary); font-size: 13px; margin: 0;">No team members available.</p>';
+            } else {
+                assigneesContainer.innerHTML = allUsers.map(user => `
+                    <div class="checkbox-group" style="margin-bottom: 8px;">
+                        <input type="checkbox" id="edit-assignee-${user.id}" value="${user.name}" ${taskAssignees.includes(user.name) ? 'checked' : ''}>
+                        <label for="edit-assignee-${user.id}" style="font-size: 14px;">${user.name}</label>
+                    </div>
+                `).join('');
+            }
 
             openModal('edit-task-modal');
         }
@@ -2449,8 +2467,12 @@
             if (!task) return;
 
             const name = document.getElementById('edit-task-name').value.trim();
-            const assignee = document.getElementById('edit-task-assignee').value;
             const priority = document.getElementById('edit-task-priority').value;
+
+            // Collect selected assignees from checkboxes
+            const assigneesContainer = document.getElementById('edit-task-assignees');
+            const checkedBoxes = assigneesContainer.querySelectorAll('input[type="checkbox"]:checked');
+            const assignees = Array.from(checkedBoxes).map(cb => cb.value);
 
             if (!name) {
                 alert('Please enter task name');
@@ -2458,11 +2480,12 @@
             }
 
             task.name = name;
-            task.assignee = assignee;
+            task.assignees = assignees;
+            task.assignee = assignees.length > 0 ? assignees.join(', ') : '';
             task.priority = priority;
 
             logActivity('TASK_UPDATED', `Updated task: ${name}`, {
-                assignee: assignee,
+                assignee: task.assignee,
                 priority: priority,
                 taskName: name
             });

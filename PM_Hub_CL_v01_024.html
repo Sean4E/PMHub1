@@ -1378,6 +1378,205 @@
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             }
         }
+
+        /* Task Chat Styles */
+        #task-chat-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        #task-chat-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-container {
+            max-width: 600px;
+            width: 100%;
+            background: var(--bg-dark);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            max-height: 700px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .chat-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .chat-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-message {
+            display: flex;
+            flex-direction: column;
+            max-width: 80%;
+        }
+
+        .chat-message.own {
+            align-self: flex-end;
+        }
+
+        .chat-message.other {
+            align-self: flex-start;
+        }
+
+        .chat-message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .chat-message.own .chat-message-header {
+            justify-content: flex-end;
+        }
+
+        .chat-message-user {
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        .chat-message.own .chat-message-user {
+            color: var(--accent-success);
+        }
+
+        .chat-message-time {
+            color: var(--text-tertiary);
+        }
+
+        .chat-message-bubble {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            word-wrap: break-word;
+        }
+
+        .chat-message.own .chat-message-bubble {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--accent-success);
+        }
+
+        .chat-input-container {
+            padding: 16px 20px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: white;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            max-height: 100px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .chat-send-btn {
+            background: var(--accent-primary);
+            border: none;
+            color: white;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-send-btn:hover {
+            background: #2563eb;
+        }
+
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chat-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .chat-empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .chat-unread-badge {
+            background: var(--accent-danger);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body>
@@ -2348,8 +2547,10 @@
                 <input type="text" id="taskTitle" placeholder="Enter task title">
             </div>
             <div class="form-group">
-                <label class="form-label">Assignee</label>
-                <select id="taskAssignee"></select>
+                <label class="form-label">Assign to Team Members</label>
+                <div id="taskAssignees" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px; max-height: 200px; overflow-y: auto;">
+                    <!-- Team member checkboxes will be populated here -->
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Priority</label>
@@ -2606,6 +2807,37 @@
             <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button class="btn btn-ghost" onclick="closeModal('createInvoiceModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="generateInvoice()">Generate Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Chat Modal -->
+    <div id="task-chat-modal">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div>
+                    <div class="chat-title" id="chat-task-name">Task Chat</div>
+                    <div class="chat-subtitle" id="chat-task-info"></div>
+                </div>
+                <button class="chat-close" onclick="closeTaskChat()">×</button>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-empty">
+                    <div class="chat-empty-icon">💬</div>
+                    <div>No messages yet</div>
+                    <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <textarea
+                    class="chat-input"
+                    id="chat-input"
+                    placeholder="Type your message..."
+                    rows="1"
+                    onkeydown="handleChatKeydown(event)"></textarea>
+                <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
             </div>
         </div>
     </div>
@@ -4268,6 +4500,7 @@
                             <span>${task.name}</span>
                         </div>
                         <div class="task-actions">
+                            <button class="btn btn-sm btn-ghost" onclick="openTaskChat('${wbs}', event)" title="Chat">💬</button>
                             <button class="btn btn-sm btn-ghost" onclick="editTask('${wbs}')">✎</button>
                             <button class="btn btn-sm btn-ghost" onclick="addSubTask('${wbs}')">+ Sub</button>
                             <button class="btn btn-sm btn-danger" onclick="removeTask('${wbs}')">×</button>
@@ -4402,6 +4635,7 @@
                         ${task.assignee ? `<div style="font-size: 12px; color: var(--text-secondary);">Assigned to: ${task.assignee}</div>` : ''}
                         ${task.priority ? `<div style="font-size: 12px; color: var(--text-tertiary);">Priority: ${task.priority}</div>` : ''}
                         <div class="task-card-actions">
+                            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openTaskChat('${task.wbs}', event)" title="Chat">💬</button>
                             ${showLeftArrow ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); moveTaskStatus('${task.wbs}', '${prevStatus}')">←</button>` : '<span style="width: 36px; display: inline-block;"></span>'}
                             ${showRightArrow ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); moveTaskStatus('${task.wbs}', '${nextStatus}')">→</button>` : '<span style="width: 36px; display: inline-block;"></span>'}
                         </div>
@@ -4706,12 +4940,27 @@
             document.getElementById('taskPriority').value = task.priority || 'medium';
             document.getElementById('taskDescription').value = task.description || '';
             
-            // Populate assignee
-            const select = document.getElementById('taskAssignee');
-            select.innerHTML = '<option value="">Unassigned</option>';
-            [...state.ourTeam, ...state.clientTeam].forEach(m => {
-                select.innerHTML += `<option value="${m.name}" ${task.assignee === m.name ? 'selected' : ''}>${m.name} (${m.email})</option>`;
-            });
+            // Populate assignees with checkboxes
+            const assigneesContainer = document.getElementById('taskAssignees');
+            const allTeam = [...state.ourTeam, ...state.clientTeam];
+
+            // Convert old single assignee to array format if needed
+            if (task.assignee && typeof task.assignee === 'string') {
+                task.assignees = [task.assignee];
+                delete task.assignee;
+            }
+            const taskAssignees = task.assignees || [];
+
+            if (allTeam.length === 0) {
+                assigneesContainer.innerHTML = '<p style="color: var(--text-tertiary); font-size: 13px; margin: 0;">No team members available. Add team members in the Team tab.</p>';
+            } else {
+                assigneesContainer.innerHTML = allTeam.map(m => `
+                    <div class="checkbox-group" style="margin-bottom: 8px;">
+                        <input type="checkbox" id="assignee-${m.id}" value="${m.name}" ${taskAssignees.includes(m.name) ? 'checked' : ''}>
+                        <label for="assignee-${m.id}" style="font-size: 14px;">${m.name} <span style="color: var(--text-secondary);">(${m.email})</span></label>
+                    </div>
+                `).join('');
+            }
             
             // Populate attendees for calendar event with optgroups
             const attendeesSelect = document.getElementById('taskEventAttendees');
@@ -4790,6 +5039,172 @@
             }
         }
 
+        // ===== TASK CHAT FUNCTIONS =====
+        let currentChatTask = null; // Store task being chatted about
+        let currentChatUser = null; // Store current user info
+
+        function openTaskChat(wbs, event) {
+            if (event) {
+                event.stopPropagation();
+            }
+
+            const task = getTaskByWbs(wbs);
+            if (!task) return;
+
+            // Store current chat task
+            currentChatTask = { wbs, task };
+
+            // Get current user from localStorage
+            const userStr = localStorage.getItem('pm_hub_current_user');
+            if (userStr) {
+                currentChatUser = JSON.parse(userStr);
+            } else {
+                currentChatUser = { id: 'admin', name: 'Administrator' };
+            }
+
+            // Initialize conversation if it doesn't exist
+            if (!task.conversation) {
+                task.conversation = {
+                    messages: [],
+                    participants: [currentChatUser.name]
+                };
+            } else if (!task.conversation.participants.includes(currentChatUser.name)) {
+                task.conversation.participants.push(currentChatUser.name);
+            }
+
+            // Update chat header
+            document.getElementById('chat-task-name').textContent = task.name;
+            document.getElementById('chat-task-info').textContent = `${state.currentArea.name} • ${state.currentProject.name}`;
+
+            // Render messages
+            renderChatMessages();
+
+            // Mark all messages as read
+            markChatMessagesRead();
+
+            // Show modal
+            document.getElementById('task-chat-modal').classList.add('active');
+
+            // Focus input
+            setTimeout(() => {
+                document.getElementById('chat-input').focus();
+            }, 100);
+        }
+
+        function closeTaskChat() {
+            document.getElementById('task-chat-modal').classList.remove('active');
+            currentChatTask = null;
+        }
+
+        function renderChatMessages() {
+            if (!currentChatTask) return;
+
+            const task = currentChatTask.task;
+            const messagesContainer = document.getElementById('chat-messages');
+
+            if (!task.conversation || task.conversation.messages.length === 0) {
+                messagesContainer.innerHTML = `
+                    <div class="chat-empty">
+                        <div class="chat-empty-icon">💬</div>
+                        <div>No messages yet</div>
+                        <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            task.conversation.messages.forEach(msg => {
+                const isOwn = msg.userName === currentChatUser.name;
+                const time = new Date(msg.timestamp).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+
+                html += `
+                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
+                        <div class="chat-message-header">
+                            <span class="chat-message-user">${msg.userName}</span>
+                            <span class="chat-message-time">${time}</span>
+                        </div>
+                        <div class="chat-message-bubble">
+                            ${msg.text}
+                        </div>
+                    </div>
+                `;
+            });
+
+            messagesContainer.innerHTML = html;
+
+            // Scroll to bottom
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 0);
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+
+            if (!text || !currentChatTask) return;
+
+            const task = currentChatTask.task;
+
+            // Create message
+            const message = {
+                id: Date.now().toString(),
+                userId: currentChatUser.id,
+                userName: currentChatUser.name,
+                text: text,
+                timestamp: new Date().toISOString(),
+                readBy: [currentChatUser.id]
+            };
+
+            // Add to conversation
+            task.conversation.messages.push(message);
+
+            // Clear input
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Render messages
+            renderChatMessages();
+
+            // Save state and sync
+            await saveHubState();
+
+            // Log activity
+            logActivity('Chat Message', `${currentChatUser.name} commented on "${task.name}"`);
+        }
+
+        function markChatMessagesRead() {
+            if (!currentChatTask || !currentChatUser) return;
+
+            const task = currentChatTask.task;
+            if (!task.conversation) return;
+
+            task.conversation.messages.forEach(msg => {
+                if (!msg.readBy.includes(currentChatUser.id)) {
+                    msg.readBy.push(currentChatUser.id);
+                }
+            });
+
+            saveHubState();
+        }
+
+        function handleChatKeydown(event) {
+            // Send on Enter (without Shift)
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+
+            // Auto-resize textarea
+            const textarea = event.target;
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+        }
+
         async function saveTask() {
             const wbs = document.getElementById('editTaskWbs').value;
             const title = document.getElementById('taskTitle').value;
@@ -4815,21 +5230,28 @@
                 // Edit existing task
                 task = getTaskByWbs(wbs);
                 if (task) {
-                    oldAssignee = task.assignee;
-                    const newAssignee = document.getElementById('taskAssignee').value;
+                    oldAssignee = task.assignee || (task.assignees ? task.assignees.join(', ') : '');
+
+                    // Collect selected assignees from checkboxes
+                    const assigneesContainer = document.getElementById('taskAssignees');
+                    const checkedBoxes = assigneesContainer.querySelectorAll('input[type="checkbox"]:checked');
+                    const newAssignees = Array.from(checkedBoxes).map(cb => cb.value);
 
                     task.name = title;
-                    task.assignee = newAssignee;
+                    task.assignees = newAssignees;
+                    // Keep single assignee for backward compatibility display
+                    task.assignee = newAssignees.length > 0 ? newAssignees.join(', ') : '';
                     task.priority = document.getElementById('taskPriority').value;
                     task.description = document.getElementById('taskDescription').value;
 
                     logActivity('Task Updated', `Updated task "${title}" (${wbs})`);
 
-                    // Notify if assignee changed
-                    if (oldAssignee !== newAssignee && newAssignee) {
+                    // Notify if assignees changed
+                    const newAssigneeStr = newAssignees.join(', ');
+                    if (oldAssignee !== newAssigneeStr && newAssignees.length > 0) {
                         createNotification(
-                            'Task Reassigned',
-                            `"${title}" has been assigned to ${newAssignee}`,
+                            'Task Assigned',
+                            `"${title}" assigned to ${newAssigneeStr}`,
                             'task_assigned',
                             {
                                 taskId: task.id,
@@ -4862,12 +5284,16 @@
                     state.currentArea.tasks = [];
                 }
 
-                const assignee = document.getElementById('taskAssignee').value;
+                // Collect selected assignees from checkboxes
+                const assigneesContainer = document.getElementById('taskAssignees');
+                const checkedBoxes = assigneesContainer.querySelectorAll('input[type="checkbox"]:checked');
+                const assignees = Array.from(checkedBoxes).map(cb => cb.value);
 
                 task = {
                     id: Date.now(),
                     name: title,
-                    assignee: assignee,
+                    assignees: assignees,
+                    assignee: assignees.length > 0 ? assignees.join(', ') : '',
                     priority: document.getElementById('taskPriority').value,
                     description: document.getElementById('taskDescription').value,
                     status: 'todo',
@@ -7850,13 +8276,21 @@
             
             document.getElementById('taskModalTitle').textContent = 'Add Task';
             document.getElementById('editTaskWbs').value = '';
-            
-            // Populate assignee dropdown
-            const select = document.getElementById('taskAssignee');
-            select.innerHTML = '<option value="">Unassigned</option>';
-            [...state.ourTeam, ...state.clientTeam].forEach(m => {
-                select.innerHTML += `<option value="${m.name}">${m.name} (${m.email})</option>`;
-            });
+
+            // Populate assignees with checkboxes
+            const assigneesContainer = document.getElementById('taskAssignees');
+            const allTeam = [...state.ourTeam, ...state.clientTeam];
+
+            if (allTeam.length === 0) {
+                assigneesContainer.innerHTML = '<p style="color: var(--text-tertiary); font-size: 13px; margin: 0;">No team members available. Add team members in the Team tab.</p>';
+            } else {
+                assigneesContainer.innerHTML = allTeam.map(m => `
+                    <div class="checkbox-group" style="margin-bottom: 8px;">
+                        <input type="checkbox" id="assignee-${m.id}" value="${m.name}">
+                        <label for="assignee-${m.id}" style="font-size: 14px;">${m.name} <span style="color: var(--text-secondary);">(${m.email})</span></label>
+                    </div>
+                `).join('');
+            }
             
             // Populate attendees dropdown for calendar event
             const attendeesSelect = document.getElementById('taskEventAttendees');

@@ -433,28 +433,28 @@
             // Get users from hub state (using correct key)
             const hubState = localStorage.getItem('pmSystemState');
 
-            if (!hubState) {
-                // No users yet - first time setup, go to admin hub
-                if (pin === '0000') {
-                    localStorage.setItem('pm_hub_current_user', JSON.stringify({
-                        id: 'admin',
-                        name: 'Administrator',
-                        pin: '0000',
-                        accessLevel: 'Admin'
-                    }));
+            // ALWAYS allow admin PIN 0000 to access hub
+            if (pin === '0000') {
+                localStorage.setItem('pm_hub_current_user', JSON.stringify({
+                    id: 'admin',
+                    name: 'Administrator',
+                    pin: '0000',
+                    accessLevel: 'Admin'
+                }));
 
-                    // Pass cloud service connections to the apps
-                    if (window.firebaseApp && window.firebaseDB) {
-                        localStorage.setItem('firebase_initialized', 'true');
-                    }
-                    if (localStorage.getItem('google_access_token')) {
-                        localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
-                    }
-
-                    window.location.href = 'PM_Hub_CL_v01_024.html';
-                    return;
+                // Pass cloud service connections to the apps
+                if (window.firebaseApp && window.firebaseDB) {
+                    localStorage.setItem('firebase_initialized', 'true');
                 }
-            } else {
+                if (localStorage.getItem('google_access_token')) {
+                    localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
+                }
+
+                window.location.href = 'PM_Hub_CL_v01_024.html';
+                return;
+            }
+
+            if (hubState) {
                 const state = JSON.parse(hubState);
                 const allUsers = [...(state.ourTeam || []), ...(state.clientTeam || [])];
 
