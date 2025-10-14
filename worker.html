@@ -16,7 +16,7 @@
     <!-- Firebase -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, getDocs, updateDoc, deleteDoc, arrayUnion, serverTimestamp, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         // Initialize Firebase (MUST match hub's config exactly)
         const firebaseConfig = {
@@ -34,13 +34,16 @@
 
             window.firebaseEnabled = true;
             window.db = db;
-            window.firestore = { collection, doc, setDoc, getDoc, onSnapshot };
+            window.firestore = { collection, doc, setDoc, getDoc, onSnapshot, getDocs, updateDoc, deleteDoc, arrayUnion, serverTimestamp, query, where, orderBy };
             console.log('✓ Worker: Firebase initialized');
         } catch (error) {
             console.error('Worker: Firebase init error:', error);
             window.firebaseEnabled = false;
         }
     </script>
+
+    <!-- PM Hub Chat Library -->
+    <script src="pm-hub-chat.js"></script>
 
     <style>
         * {
@@ -1034,9 +1037,9 @@
         let qrScanner = null;
         let scannedToolId = null;
 
-        // Chat Polling State
-        let chatPollInterval = null;
-        let lastMessageCount = 0;
+        // Real-Time Chat System
+        let chatSystem = null;
+        let activeChatListener = null;
 
         // Helper function to check if task is assigned to current user
         function isTaskAssignedToMe(task) {
@@ -1364,118 +1367,71 @@
             }
         });
 
-        // ===== TASK CHAT FUNCTIONS =====
-        function openTaskChat() {
-            if (!currentTask) return;
-
-            // Initialize conversation if it doesn't exist
-            if (!currentTask.conversation) {
-                currentTask.conversation = {
-                    messages: [],
-                    participants: [currentUser.name]
-                };
+        // ===== TASK CHAT FUNCTIONS (REAL-TIME) =====
+        async function openTaskChat() {
+            if (!chatSystem) {
+                console.error('💬 Chat system not initialized');
+                showToast('Chat system not available', 'error');
+                return;
             }
+
+            if (!currentTask) return;
 
             // Update chat header
             document.getElementById('chat-task-name').textContent = currentTask.name;
             document.getElementById('chat-task-info').textContent = `${currentTask.areaName} • ${currentTask.projectName || 'Project'}`;
 
-            // Render messages
-            renderChatMessages();
-
-            // Mark all messages as read
-            markChatMessagesRead();
-
             // Show modal
             document.getElementById('task-chat-modal').classList.add('active');
 
-            // Start polling for new messages (like WhatsApp/Slack)
-            startChatPolling();
+            // Initialize chat in Firebase
+            await chatSystem.initializeChat(currentTask.projectId, currentTask.areaId, currentTask.wbs, currentTask.name);
+
+            // Start real-time listener
+            activeChatListener = chatSystem.listenToMessages(
+                currentTask.projectId,
+                currentTask.areaId,
+                currentTask.wbs,
+                (messages) => {
+                    // Render messages in real-time
+                    renderChatMessages(messages);
+
+                    // Mark unread messages as read
+                    const unreadMessageIds = messages
+                        .filter(msg => !msg.readBy?.includes(currentUser.id) && msg.userId !== currentUser.id)
+                        .map(msg => msg.id);
+
+                    if (unreadMessageIds.length > 0) {
+                        chatSystem.markMessagesAsRead(currentTask.projectId, currentTask.areaId, currentTask.wbs, unreadMessageIds);
+                    }
+                }
+            );
 
             // Focus input
             setTimeout(() => {
                 document.getElementById('chat-input').focus();
             }, 100);
+
+            console.log('💬 Worker: Real-time chat opened for task', currentTask.wbs);
         }
 
         function closeTaskChat() {
             document.getElementById('task-chat-modal').classList.remove('active');
             document.getElementById('chat-input').value = '';
 
-            // Stop polling when chat is closed
-            stopChatPolling();
-        }
-
-        function startChatPolling() {
-            // Clear any existing interval
-            stopChatPolling();
-
-            console.log('💬 Worker: Starting chat polling (checking every 2 seconds)');
-
-            // Store initial message count
-            lastMessageCount = currentTask.conversation?.messages?.length || 0;
-
-            // Poll every 2 seconds for new messages
-            chatPollInterval = setInterval(() => {
-                refreshChatMessages();
-            }, 2000);
-        }
-
-        function stopChatPolling() {
-            if (chatPollInterval) {
-                clearInterval(chatPollInterval);
-                chatPollInterval = null;
-                console.log('💬 Worker: Stopped chat polling');
+            // Stop real-time listener
+            if (activeChatListener) {
+                activeChatListener();
+                activeChatListener = null;
             }
+
+            console.log('💬 Worker: Chat closed');
         }
 
-        function refreshChatMessages() {
-            // Reload hub state to get latest messages
-            const stateStr = localStorage.getItem('pmSystemState');
-            if (!stateStr) return;
-
-            hubState = JSON.parse(stateStr);
-
-            // Find the updated task
-            const project = hubState.projects?.find(p => p.id == currentTask.projectId);
-            if (!project) return;
-
-            const area = project.areas?.find(a => a.id == currentTask.areaId);
-            if (!area) return;
-
-            const updatedTask = area.tasks?.find(t => t.wbs == currentTask.wbs);
-            if (!updatedTask) return;
-
-            // Check if there are new messages
-            const newMessageCount = updatedTask.conversation?.messages?.length || 0;
-
-            if (newMessageCount > lastMessageCount) {
-                console.log(`💬 Worker: ${newMessageCount - lastMessageCount} new message(s) detected`);
-
-                // Update currentTask with new data
-                currentTask = {
-                    ...updatedTask,
-                    projectId: project.id,
-                    projectName: project.name,
-                    areaId: area.id,
-                    areaName: area.name
-                };
-
-                // Re-render messages
-                renderChatMessages();
-
-                // Mark new messages as read
-                markChatMessagesRead();
-
-                // Update count
-                lastMessageCount = newMessageCount;
-            }
-        }
-
-        function renderChatMessages() {
+        function renderChatMessages(messages = []) {
             const container = document.getElementById('chat-messages');
 
-            if (!currentTask.conversation || currentTask.conversation.messages.length === 0) {
+            if (!messages || messages.length === 0) {
                 container.innerHTML = `
                     <div class="chat-empty">
                         <div class="chat-empty-icon">💬</div>
@@ -1487,18 +1443,24 @@
             }
 
             let html = '';
-            currentTask.conversation.messages.forEach(msg => {
+            messages.forEach(msg => {
                 const isOwn = msg.userId === currentUser.id;
                 const messageClass = isOwn ? 'own' : 'other';
-                const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Handle timestamp - could be Firebase Timestamp or ISO string
+                let time = '';
+                if (msg.timestamp) {
+                    const date = msg.timestamp.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp);
+                    time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
 
                 html += `
                     <div class="chat-message ${messageClass}">
                         <div class="chat-message-header">
-                            <span class="chat-message-user">${msg.userName}</span>
+                            <span class="chat-message-user">${escapeHtml(msg.userName)}</span>
                             <span class="chat-message-time">${time}</span>
                         </div>
-                        <div class="chat-message-bubble">${escapeHtml(msg.text)}</div>
+                        <div class="chat-message-bubble">${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>
                     </div>
                 `;
             });
@@ -1510,67 +1472,37 @@
         }
 
         async function sendChatMessage() {
+            if (!chatSystem || !currentTask) return;
+
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
 
-            if (!text || !currentTask) return;
+            if (!text) return;
 
-            // Initialize conversation if needed
-            if (!currentTask.conversation) {
-                currentTask.conversation = {
-                    messages: [],
-                    participants: [currentUser.name]
-                };
+            // Send message via Firebase
+            const success = await chatSystem.sendMessage(
+                currentTask.projectId,
+                currentTask.areaId,
+                currentTask.wbs,
+                text,
+                currentTask.name
+            );
+
+            if (success) {
+                // Clear input
+                input.value = '';
+
+                // Log activity for notifications
+                logActivity('TASK_MESSAGE', `New message in: ${currentTask.name}`, {
+                    taskName: currentTask.name,
+                    taskWbs: currentTask.wbs,
+                    message: text.substring(0, 100)
+                });
+
+                console.log('💬 Worker: Message sent successfully');
+            } else {
+                showToast('Failed to send message', 'error');
             }
-
-            // Add participant if not already in list
-            if (!currentTask.conversation.participants.includes(currentUser.name)) {
-                currentTask.conversation.participants.push(currentUser.name);
-            }
-
-            // Create message
-            const message = {
-                id: Date.now().toString(),
-                userId: currentUser.id,
-                userName: currentUser.name,
-                text: text,
-                timestamp: new Date().toISOString(),
-                readBy: [currentUser.id]
-            };
-
-            // Add to conversation
-            currentTask.conversation.messages.push(message);
-
-            // Update task in hubState
-            const project = hubState.projects.find(p => p.id == currentTask.projectId);
-            if (project) {
-                const area = project.areas.find(a => a.id == currentTask.areaId);
-                if (area) {
-                    const task = area.tasks.find(t => t.wbs == currentTask.wbs);
-                    if (task) {
-                        task.conversation = currentTask.conversation;
-                    }
-                }
-            }
-
-            // Log activity for notifications
-            logActivity('TASK_MESSAGE', `New message in: ${currentTask.name}`, {
-                taskName: currentTask.name,
-                taskWbs: currentTask.wbs,
-                assignee: currentTask.assignee,
-                message: text.substring(0, 100) // First 100 chars
-            });
-
-            // Save and sync
-            await saveHubState('projects');
-
-            // Clear input
-            input.value = '';
-
-            // Re-render
-            renderChatMessages();
-
-            showToast('Message sent!', 'success', 2000);
         }
 
         function handleChatKeydown(event) {
@@ -1579,39 +1511,6 @@
                 event.preventDefault();
                 sendChatMessage();
             }
-        }
-
-        function markChatMessagesRead() {
-            if (!currentTask || !currentTask.conversation) return;
-
-            let hasUnread = false;
-
-            currentTask.conversation.messages.forEach(msg => {
-                if (!msg.readBy) msg.readBy = [];
-                if (!msg.readBy.includes(currentUser.id)) {
-                    msg.readBy.push(currentUser.id);
-                    hasUnread = true;
-                }
-            });
-
-            if (hasUnread) {
-                // Update in hubState
-                const project = hubState.projects.find(p => p.id == currentTask.projectId);
-                if (project) {
-                    const area = project.areas.find(a => a.id == currentTask.areaId);
-                    if (area) {
-                        const task = area.tasks.find(t => t.wbs == currentTask.wbs);
-                        if (task) {
-                            task.conversation = currentTask.conversation;
-                        }
-                    }
-                }
-
-                // Save (no broadcast needed for read receipts)
-                saveHubState('projects', false); // false = don't broadcast
-            }
-
-            updateChatBadge();
         }
 
         function updateChatBadge() {
@@ -1683,6 +1582,33 @@
 
             // Load projects
             loadProjects();
+
+            // Initialize Real-Time Chat System
+            initializeChatSystem();
+        }
+
+        function initializeChatSystem() {
+            // Wait for Firebase to be ready
+            setTimeout(() => {
+                if (window.firebaseEnabled && window.db && window.firestore && typeof PMHubChat !== 'undefined') {
+                    chatSystem = new PMHubChat({
+                        db: window.db,
+                        firestore: window.firestore,
+                        currentUser: currentUser,
+                        onMessageReceived: (message) => {
+                            // Show notification for new messages
+                            console.log('💬 New message received:', message);
+                        },
+                        onUnreadCountChanged: (projectId, areaId, taskWbs, count) => {
+                            // Update unread badge if needed
+                            console.log(`💬 Unread count for ${taskWbs}: ${count}`);
+                        }
+                    });
+                    console.log('✓ Worker: Real-time chat system initialized');
+                } else {
+                    console.warn('⚠️ Worker: Chat system not available - Firebase or PMHubChat not loaded');
+                }
+            }, 1000);
         }
 
         // ===== GOOGLE DRIVE INTEGRATION =====
