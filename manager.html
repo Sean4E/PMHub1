@@ -4211,6 +4211,11 @@ End of Report
         // Initialize real-time sync after page load
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
+                console.log('📡 Manager: Initializing real-time sync...', {
+                    currentUser: currentUser ? currentUser.name : 'NOT SET',
+                    PMHubRealtimeSync: window.PMHubRealtimeSync ? 'LOADED' : 'NOT LOADED'
+                });
+
                 if (currentUser && window.PMHubRealtimeSync) {
                     window.pmRealtime = new PMHubRealtimeSync({
                         appName: 'Manager',
@@ -4290,6 +4295,11 @@ End of Report
                         }
                     });
                     console.log('✓ Manager: Real-time sync initialized');
+                } else {
+                    console.error('❌ Manager: Real-time sync NOT initialized', {
+                        currentUser: currentUser ? 'SET' : 'NOT SET',
+                        PMHubRealtimeSync: window.PMHubRealtimeSync ? 'LOADED' : 'NOT LOADED'
+                    });
                 }
             }, 1000); // Wait for init() to complete
         });

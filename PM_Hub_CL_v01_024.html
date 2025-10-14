@@ -4746,7 +4746,7 @@
                 const clientName = client ? client.companyName : 'No client';
 
                 return `
-                    <div class="project-item ${state.currentProject?.id === p.id ? 'active' : ''}" onclick="selectProject(${p.id})">
+                    <div class="project-item ${state.currentProject?.id === p.id ? 'active' : ''}" onclick="selectProject('${p.id}')">
                         <div class="project-code">${p.code}</div>
                         <div class="project-name">${p.name}</div>
                         <div style="font-size: 11px; color: var(--text-tertiary);">${clientName}</div>
@@ -4833,11 +4833,11 @@
             if (!state.currentProject.areas || state.currentProject.areas.length === 0) {
                 return '<div style="padding: 8px; color: var(--text-tertiary);">No areas yet. Click "+ Add Area" to create one.</div>';
             }
-            
+
             return state.currentProject.areas.map(area => `
-                <div class="area-tab ${state.currentArea?.id === area.id ? 'active' : ''}" onclick="selectArea(${area.id})">
+                <div class="area-tab ${state.currentArea?.id === area.id ? 'active' : ''}" onclick="selectArea('${area.id}')">
                     ${area.name}
-                    <span class="area-tab-close" onclick="event.stopPropagation(); deleteArea(${area.id})">×</span>
+                    <span class="area-tab-close" onclick="event.stopPropagation(); deleteArea('${area.id}')">×</span>
                 </div>
             `).join('');
         }
@@ -6985,8 +6985,8 @@
                         <td>${m.department || ''}</td>
                         <td><code>${m.pin || 'Not set'}</code></td>
                         <td>
-                            <button class="btn btn-sm btn-ghost" onclick="editMember(${m.id}, 'our')">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.id}, 'our')">Delete</button>
+                            <button class="btn btn-sm btn-ghost" onclick="editMember('${m.id}', 'our')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteMember('${m.id}', 'our')">Delete</button>
                         </td>
                     </tr>
                 `).join('');
@@ -7005,8 +7005,8 @@
                         <td>${m.role}</td>
                         <td><code>${m.pin || 'Not set'}</code></td>
                         <td>
-                            <button class="btn btn-sm btn-ghost" onclick="editMember(${m.id}, 'client')">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteMember(${m.id}, 'client')">Delete</button>
+                            <button class="btn btn-sm btn-ghost" onclick="editMember('${m.id}', 'client')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteMember('${m.id}', 'client')">Delete</button>
                         </td>
                     </tr>
                 `).join('');
@@ -7968,7 +7968,7 @@
                              notif.type === 'warning' ? '⚠️' : 'ℹ️';
 
                 return `
-                    <div onclick="markNotificationAsRead(${notif.id})"
+                    <div onclick="markNotificationAsRead('${notif.id}')"
                          style="padding: 16px; background: ${bgColor}; border-radius: 12px; margin-bottom: 8px; cursor: pointer; border: 1px solid var(--glass-border); transition: all 0.2s;"
                          onmouseover="this.style.transform='translateX(-4px)'"
                          onmouseout="this.style.transform='translateX(0)'">
