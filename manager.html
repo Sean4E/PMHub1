@@ -1848,28 +1848,13 @@
             hubState.isOnline = navigator.onLine;
             localStorage.setItem('pmSystemState', JSON.stringify(hubState));
 
-            // Sync to Firebase if enabled
-            if (window.firebaseEnabled && window.db) {
+            // FIREBASE-FIRST: Use unified sync library (writes immediately, no merge)
+            if (window.firebaseEnabled && window.PMHubSync) {
                 try {
-                    const cleanData = {
-                        projects: Array.isArray(hubState.projects) ? hubState.projects : [],
-                        ourTeam: Array.isArray(hubState.ourTeam) ? hubState.ourTeam : [],
-                        clientTeam: Array.isArray(hubState.clientTeam) ? hubState.clientTeam : [],
-                        tools: Array.isArray(hubState.tools) ? hubState.tools : [],
-                        activities: Array.isArray(hubState.activities) ? hubState.activities.slice(0, 100) : [],
-                        reports: Array.isArray(hubState.reports) ? hubState.reports.slice(0, 50) : [],
-                        timeEntries: Array.isArray(hubState.timeEntries) ? hubState.timeEntries : [],
-                        lastModified: new Date().toISOString(),
-                        lastSyncedBy: currentUser ? currentUser.name : 'manager'
-                    };
-
-                    await window.firestore.setDoc(
-                        window.firestore.doc(window.db, 'hubs', 'main'),
-                        cleanData,
-                        { merge: true }
-                    );
+                    const sync = new PMHubSync('Manager', currentUser);
+                    await sync.saveState(hubState, section);
                 } catch (error) {
-                    console.error('Firebase sync error:', error);
+                    console.error('❌ Manager: Firebase sync error:', error);
                 }
             }
 
@@ -2810,61 +2795,21 @@ End of Report
 
             managementProject.areas.push(newArea);
 
-            // 🔥 REAL-TIME: Write area creation directly to Firebase
-            if (firebaseOps) {
-                console.log('🔥 Manager: Creating area in Firebase - Hub & Worker will see this instantly!');
-                // Update project with new area
-                const stateUpdate = await firebaseOps.getHubState();
-                if (stateUpdate && stateUpdate.projects) {
-                    const projectIndex = stateUpdate.projects.findIndex(p => p.id === managementProject.id);
-                    if (projectIndex !== -1) {
-                        stateUpdate.projects[projectIndex] = managementProject;
-
-                        // Write back to Firebase
-                        try {
-                            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                            await window.firestore.setDoc(docRef, {
-                                ...stateUpdate,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: currentUser.name
-                            });
-
-                            // Log activity
-                            await firebaseOps.logActivity('AREA_CREATED',
-                                `Manager created area: ${name} in ${managementProject.name}`,
-                                {
-                                    projectId: managementProject.id,
-                                    projectName: managementProject.name,
-                                    areaId: newArea.id,
-                                    areaName: name,
-                                    billable: billable
-                                }
-                            );
-
-                            console.log('✅ Manager: Area synced to Firebase in real-time!');
-                            showToast('Area added - synced across all apps!', 'success');
-                        } catch (error) {
-                            console.error('❌ Firebase write failed:', error);
-                            showToast('Area saved locally - will sync when connection restored', 'warning');
-                        }
-                    }
-                }
-            } else {
-                // Fallback to localStorage
-                logActivity('AREA_CREATED', `Created area: ${name}`);
-                showToast('Area added!', 'success');
+            // Update hubState with the modified project
+            const projectIndex = hubState.projects.findIndex(p => p.id === managementProject.id);
+            if (projectIndex !== -1) {
+                hubState.projects[projectIndex] = managementProject;
             }
 
-            // ALWAYS save to localStorage as backup (even when Firebase is enabled)
+            // Log activity
+            logActivity('AREA_CREATED', `Manager created area: ${name} in ${managementProject.name}`);
+
+            // Save to Firebase immediately (saveHubState now writes immediately)
             await saveHubState('projects');
 
-            // Log activity locally
-            logActivity('AREA_CREATED', `Created area: ${name}`);
-
+            showToast('Area added - synced across all apps!', 'success');
             closeModal('add-area-modal');
             showManageAreas();
-
-            console.log('✅ Manager: Area added to local state and UI refreshed');
         }
 
         async function deleteArea(areaId) {
@@ -2998,72 +2943,21 @@ End of Report
 
             area.tasks.push(newTask);
 
-            // 🔥 REAL-TIME: Write task creation directly to Firebase
-            if (firebaseOps) {
-                console.log('🔥 Manager: Creating task in Firebase - Hub & Worker will see this instantly!');
-                // Update project with new task
-                const stateUpdate = await firebaseOps.getHubState();
-                if (stateUpdate && stateUpdate.projects) {
-                    const projectIndex = stateUpdate.projects.findIndex(p => p.id === managementProject.id);
-                    if (projectIndex !== -1) {
-                        stateUpdate.projects[projectIndex] = managementProject;
-
-                        // Write back to Firebase
-                        try {
-                            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                            await window.firestore.setDoc(docRef, {
-                                ...stateUpdate,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: currentUser.name
-                            });
-
-                            // Log activity
-                            await firebaseOps.logActivity('TASK_CREATED',
-                                `Manager created task: ${name} → ${assignee}`,
-                                {
-                                    projectId: managementProject.id,
-                                    projectName: managementProject.name,
-                                    areaId: area.id,
-                                    areaName: area.name,
-                                    taskWbs: wbs,
-                                    taskName: name,
-                                    assignee: assignee,
-                                    priority: priority
-                                }
-                            );
-
-                            console.log('✅ Manager: Task synced to Firebase in real-time!');
-                            showToast('Task added - synced across all apps!', 'success');
-                        } catch (error) {
-                            console.error('❌ Firebase write failed:', error);
-                            showToast('Task saved locally - will sync when connection restored', 'warning');
-                        }
-                    }
-                }
-            } else {
-                // Fallback to localStorage
-                logActivity('TASK_CREATED', `Created task: ${name}`, {
-                    assignee: assignee,
-                    priority: priority,
-                    taskName: name
-                });
-                showToast('Task added!', 'success');
+            // Update hubState with the modified project
+            const projectIndex = hubState.projects.findIndex(p => p.id === managementProject.id);
+            if (projectIndex !== -1) {
+                hubState.projects[projectIndex] = managementProject;
             }
 
-            // ALWAYS save to localStorage as backup (even when Firebase is enabled)
+            // Log activity
+            logActivity('TASK_CREATED', `Manager created task: ${name} → ${assignee}`);
+
+            // Save to Firebase immediately (saveHubState now writes immediately)
             await saveHubState('projects');
 
-            // Log activity locally
-            logActivity('TASK_CREATED', `Created task: ${name}`, {
-                assignee: assignee,
-                priority: priority,
-                taskName: name
-            });
-
+            showToast('Task added - synced across all apps!', 'success');
             closeModal('add-task-modal');
             showManageTasks();
-
-            console.log('✅ Manager: Task added to local state and UI refreshed');
         }
 
         async function deleteTask(areaId, taskWbs) {
@@ -4311,6 +4205,7 @@ End of Report
     </script>
 
     <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-sync.js"></script>
     <script src="pm-hub-realtime.js"></script>
     <script>
         // Initialize real-time sync after page load

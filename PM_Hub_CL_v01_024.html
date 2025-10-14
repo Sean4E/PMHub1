@@ -7569,35 +7569,16 @@
         }
 
         async function syncStateToFirebase() {
-            if (!window.firebaseEnabled) {
-                console.log('ℹ️ Firebase not enabled, skipping sync');
+            if (!window.firebaseEnabled || !window.PMHubSync) {
+                console.log('ℹ️ Firebase or PMHubSync not available, skipping sync');
                 return;
             }
 
             try {
-                console.log('☁️ Syncing state to Firebase...');
-
-                await window.firestore.setDoc(
-                    window.firestore.doc(window.db, 'hubs', 'main'),
-                    {
-                        projects: state.projects,
-                        ourTeam: state.ourTeam,
-                        clientTeam: state.clientTeam,
-                        clients: state.clients,
-                        tools: state.tools,
-                        modules: state.modules,
-                        settings: state.settings,
-                        usedProjectNumbers: state.usedProjectNumbers,
-                        activities: state.activities,
-                        folderTemplate: state.folderTemplate,
-                        lastModified: window.firestore.serverTimestamp(),
-                        lastSyncedBy: state.currentUser || 'system'
-                    }
-                );
-
-                console.log('✓ State synced to Firebase successfully');
+                // Use unified sync library
+                const sync = new PMHubSync('Admin', state.currentUser);
+                await sync.saveState(state, 'general');
                 updateFirebaseStatus();
-
             } catch (error) {
                 console.error('❌ Error syncing to Firebase:', error);
                 updateFirebaseStatus();
@@ -10366,6 +10347,7 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 
     <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-sync.js"></script>
     <script src="pm-hub-realtime.js"></script>
     <script>
         // Initialize real-time sync after page load

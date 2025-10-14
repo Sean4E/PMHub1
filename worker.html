@@ -1906,34 +1906,13 @@
             hubState.isOnline = navigator.onLine;
             localStorage.setItem('pmSystemState', JSON.stringify(hubState));
 
-            // Sync to Firebase if enabled
-            if (window.firebaseEnabled && window.db) {
+            // FIREBASE-FIRST: Use unified sync library (writes immediately, no merge)
+            if (window.firebaseEnabled && window.PMHubSync) {
                 try {
-                    console.log('☁️ Worker: Syncing to Firebase...');
-
-                    // Clean data for Firebase (remove undefined/null, ensure arrays)
-                    const cleanData = {
-                        projects: Array.isArray(hubState.projects) ? hubState.projects : [],
-                        ourTeam: Array.isArray(hubState.ourTeam) ? hubState.ourTeam : [],
-                        clientTeam: Array.isArray(hubState.clientTeam) ? hubState.clientTeam : [],
-                        clients: Array.isArray(hubState.clients) ? hubState.clients : [],
-                        tools: Array.isArray(hubState.tools) ? hubState.tools : [],
-                        activities: Array.isArray(hubState.activities) ? hubState.activities.slice(0, 100) : [], // Limit to 100 most recent
-                        reports: Array.isArray(hubState.reports) ? hubState.reports.slice(0, 50) : [], // Limit to 50 most recent
-                        timeEntries: Array.isArray(hubState.timeEntries) ? hubState.timeEntries : [],
-                        lastModified: new Date().toISOString(),
-                        lastSyncedBy: currentUser ? currentUser.name : 'worker'
-                    };
-
-                    await window.firestore.setDoc(
-                        window.firestore.doc(window.db, 'hubs', 'main'),
-                        cleanData,
-                        { merge: true } // Use merge to avoid overwriting other fields
-                    );
-                    console.log('✓ Worker: Synced to Firebase');
+                    const sync = new PMHubSync('Worker', currentUser);
+                    await sync.saveState(hubState, section);
                 } catch (error) {
                     console.error('❌ Worker: Firebase sync error:', error);
-                    console.error('Error details:', error.message);
                 }
             }
 
@@ -3493,6 +3472,7 @@ End of Report
     </script>
 
     <!-- Real-Time Sync & Notifications -->
+    <script src="pm-hub-sync.js"></script>
     <script src="pm-hub-realtime.js"></script>
     <script>
         // Initialize real-time sync after page load
