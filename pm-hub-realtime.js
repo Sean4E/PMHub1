@@ -125,22 +125,35 @@ class PMHubRealtimeSync {
         this.lastUpdateTimestamp = update.timestamp;
         this.lastUpdateSource = update.source;
 
-        // Load updated state from localStorage (already synced by Firebase or broadcast)
-        const stateStr = localStorage.getItem('pmSystemState');
-        if (stateStr) {
-            const newState = JSON.parse(stateStr);
-            console.log(`✅ ${this.appName}: State loaded from localStorage`);
+        let newState;
 
-            // Call the app-specific update handler
-            console.log(`🎯 ${this.appName}: Calling onStateUpdate callback`);
-            this.onStateUpdate(newState, update);
+        // If update came from Firebase, use the data FROM Firebase
+        if (update.source === 'firebase' && update.data) {
+            console.log(`☁️ ${this.appName}: Using data from Firebase`);
+            newState = update.data;
 
-            // Show notification if there's activity info
-            if (update.activity) {
-                this.queueNotification(update.activity, update.syncedBy);
-            }
+            // Update localStorage with Firebase data
+            localStorage.setItem('pmSystemState', JSON.stringify(newState));
+            console.log(`✅ ${this.appName}: localStorage updated from Firebase`);
         } else {
-            console.error(`❌ ${this.appName}: No state found in localStorage!`);
+            // For broadcast updates, load from localStorage (already updated by same-browser app)
+            const stateStr = localStorage.getItem('pmSystemState');
+            if (stateStr) {
+                newState = JSON.parse(stateStr);
+                console.log(`✅ ${this.appName}: State loaded from localStorage`);
+            } else {
+                console.error(`❌ ${this.appName}: No state found in localStorage!`);
+                return;
+            }
+        }
+
+        // Call the app-specific update handler
+        console.log(`🎯 ${this.appName}: Calling onStateUpdate callback`);
+        this.onStateUpdate(newState, update);
+
+        // Show notification if there's activity info
+        if (update.activity) {
+            this.queueNotification(update.activity, update.syncedBy);
         }
     }
 
