@@ -5125,7 +5125,7 @@
 
             try {
                 const project = {
-                    id: Date.now(),
+                    id: Date.now().toString(),
                     code: projectCode,
                     name: name,
                     clientId: clientId,
@@ -5262,34 +5262,74 @@
         }
 
         async function deleteProject() {
-            if (!confirm('Delete this project and all its data? This cannot be undone!')) return;
-            
-            const projectCode = state.currentProject.code;
-            const projectName = state.currentProject.name;
-            
+            // Safety check
+            if (!state.currentProject) {
+                showAlert('No project selected', 'error');
+                return;
+            }
+
+            const projectToDelete = state.currentProject;
+            const projectCode = projectToDelete.code;
+            const projectName = projectToDelete.name;
+            const projectId = projectToDelete.id;
+
+            if (!confirm(`Delete project "${projectName}" (${projectCode}) and all its data? This cannot be undone!`)) return;
+
+            console.log('🗑️ Deleting project:', { id: projectId, code: projectCode, name: projectName });
+
             // Delete from Drive if connected
-            if (state.connected && state.currentProject.driveFolderId) {
+            if (state.connected && projectToDelete.driveFolderId) {
                 try {
                     await gapi.client.drive.files.delete({
-                        fileId: state.currentProject.driveFolderId
+                        fileId: projectToDelete.driveFolderId
                     });
-                    showAlert('Project deleted from Google Drive', 'success');
+                    console.log('✅ Project deleted from Google Drive');
                 } catch (error) {
                     console.error('Error deleting from Drive:', error);
-                    showAlert('Could not delete from Drive, but removed locally', 'warning');
+                    showAlert('Could not delete from Drive, but removing locally', 'warning');
                 }
             }
-            
-            state.projects = state.projects.filter(p => p.id !== state.currentProject.id);
+
+            // Remove from local state
+            state.projects = state.projects.filter(p => p.id !== projectId);
             state.currentProject = null;
             state.currentArea = null;
-            
+
+            // Clear localStorage selection
+            localStorage.removeItem('pm_hub_current_project_id');
+            localStorage.removeItem('pm_hub_current_area_id');
+
+            // Save to localStorage
             saveState();
+
+            // Delete from Firebase
+            if (window.firebaseEnabled && window.db && window.firestore) {
+                try {
+                    const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                    const docSnap = await window.firestore.getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        const hubState = docSnap.data();
+                        hubState.projects = hubState.projects.filter(p => p.id !== projectId);
+
+                        await window.firestore.setDoc(docRef, {
+                            ...hubState,
+                            lastModified: new Date().toISOString(),
+                            lastSyncedBy: state.currentUser?.name || 'Hub User'
+                        });
+
+                        console.log('✅ Project deleted from Firebase');
+                    }
+                } catch (error) {
+                    console.error('❌ Firebase delete failed:', error);
+                }
+            }
+
             logActivity('Project Deleted', `Deleted project ${projectCode} - ${projectName}`);
             updateDashboard();
             renderProjects();
             renderProjectDetails();
-            showAlert(`Project ${projectCode} deleted. Number retained to prevent reuse.`, 'success');
+            showAlert(`Project ${projectCode} deleted successfully`, 'success');
         }
 
         // Task Management Functions
@@ -5323,7 +5363,7 @@
             }
             
             task.children.push({
-                id: Date.now(),
+                id: Date.now().toString(),
                 name: name,
                 status: 'todo',
                 children: []
@@ -5729,7 +5769,7 @@
                 const assignees = Array.from(checkedBoxes).map(cb => cb.value);
 
                 task = {
-                    id: Date.now(),
+                    id: Date.now().toString(),
                     name: title,
                     assignees: assignees,
                     assignee: assignees.length > 0 ? assignees.join(', ') : '',
@@ -6113,7 +6153,7 @@
 
                     if (docSnap.exists()) {
                         const hubState = docSnap.data();
-                        const projectIndex = hubState.projects.findIndex(p => p.id == state.currentProject.id);
+                        const projectIndex = hubState.projects.findIndex(p => p.id === state.currentProject.id);
 
                         if (projectIndex !== -1) {
                             // Update project with new area
@@ -6355,7 +6395,7 @@
             }
 
             const task = {
-                id: Date.now(),
+                id: Date.now().toString(),
                 name: name,
                 status: 'todo',
                 priority: 'high', // Default to high priority for quick tasks
@@ -7090,7 +7130,7 @@
                 }
             } else {
                 const newMember = {
-                    id: Date.now(),
+                    id: Date.now().toString(),
                     name: name,
                     email: email,
                     accessLevel: document.getElementById('memberAccessLevel').value,
@@ -7833,7 +7873,7 @@
 
         function createNotification(title, message, type = 'info', data = {}) {
             const notification = {
-                id: Date.now(),
+                id: Date.now().toString(),
                 title,
                 message,
                 type, // 'info', 'success', 'warning', 'task_assigned', 'task_completed', 'awaiting_work'
