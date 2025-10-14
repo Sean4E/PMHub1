@@ -21,7 +21,8 @@ class PMHubRealtimeSync {
         this.firebaseUnsubscribe = null;
 
         // Track last update to avoid duplicate notifications
-        this.lastUpdateTimestamp = Date.now();
+        // Start at 0 so we receive ALL Firebase updates when we first load
+        this.lastUpdateTimestamp = 0;
         this.lastUpdateSource = null;
 
         // Notification queue to avoid spam
@@ -61,19 +62,21 @@ class PMHubRealtimeSync {
                 if (doc.exists()) {
                     const data = doc.data();
 
-                    // Check if this is a real update (not our own)
-                    if (data.lastSyncedBy !== this.currentUser?.name &&
-                        data.lastModified &&
-                        new Date(data.lastModified).getTime() > this.lastUpdateTimestamp) {
+                    // Check if this is a real update (newer than last received)
+                    const updateTimestamp = data.lastModified ? new Date(data.lastModified).getTime() : 0;
 
+                    if (updateTimestamp > this.lastUpdateTimestamp) {
                         console.log(`☁️ ${this.appName}: Firebase update detected from ${data.lastSyncedBy}`);
+                        console.log(`   - Update timestamp: ${updateTimestamp} > Last: ${this.lastUpdateTimestamp}`);
 
                         this.handleStateUpdate({
                             source: 'firebase',
                             data: data,
                             syncedBy: data.lastSyncedBy,
-                            timestamp: new Date(data.lastModified).getTime()
+                            timestamp: updateTimestamp
                         });
+                    } else {
+                        console.log(`⏭️ ${this.appName}: Skipping old/duplicate Firebase update (timestamp: ${updateTimestamp})`);
                     }
                 }
             }, (error) => {

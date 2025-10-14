@@ -3233,19 +3233,23 @@
             if (finalState) {
                 const savedState = finalState;
 
-                // Save IDs of current selections before merging
-                const currentProjectId = savedState.currentProject?.id;
-                const currentAreaId = savedState.currentArea?.id;
-
                 state = { ...state, ...savedState };
+
+                // Restore selections from separate localStorage (survives Firebase state replacements)
+                const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
+                const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
+
+                console.log('🔍 Hub loadState: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
 
                 // Re-link currentProject and currentArea to actual objects in projects array
                 // This is CRITICAL - without this, we're working with stale copies
                 if (currentProjectId) {
                     state.currentProject = state.projects?.find(p => p.id === currentProjectId) || null;
+                    console.log('🎯 Hub loadState: Project restored:', state.currentProject ? state.currentProject.name : 'NOT FOUND');
 
                     if (state.currentProject && currentAreaId) {
                         state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
+                        console.log('🎯 Hub loadState: Area restored:', state.currentArea ? state.currentArea.name : 'NOT FOUND');
                     } else {
                         state.currentArea = null;
                     }
@@ -3458,17 +3462,23 @@
             state.lastModified = new Date().toISOString();
 
             // Convert Set to Array for storage
-            // IMPORTANT: Only save IDs for currentProject/currentArea to avoid circular references
+            // IMPORTANT: Do NOT save currentProject/currentArea - those are UI state only
             const stateToSave = {
                 ...state,
                 collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
-                currentProject: state.currentProject ? { id: state.currentProject.id } : null,
-                currentArea: state.currentArea ? { id: state.currentArea.id } : null
+                currentProject: null, // UI state - not saved
+                currentArea: null     // UI state - not saved
             };
             localStorage.setItem('pmSystemState', JSON.stringify(stateToSave));
 
-            // Sync to Firebase
-            await syncStateToFirebase();
+            // Sync to Firebase (debounced to avoid excessive writes)
+            // Clear any pending sync and schedule a new one
+            if (window.firebaseEnabled) {
+                clearTimeout(window.firebaseSyncTimeout);
+                window.firebaseSyncTimeout = setTimeout(async () => {
+                    await syncStateToFirebase();
+                }, 1000); // 1 second debounce
+            }
 
             // Broadcast update to modules
             window.PMHub.broadcastUpdate('STATE_UPDATED', {
@@ -3481,14 +3491,6 @@
             // Broadcast to other tabs/windows for instant sync
             if (typeof broadcastStateChange === 'function') {
                 broadcastStateChange(section);
-            }
-
-            // Sync to Firebase if enabled (debounced - waits 2 seconds for batch updates)
-            if (window.firebaseEnabled) {
-                clearTimeout(window.firebaseSyncTimeout);
-                window.firebaseSyncTimeout = setTimeout(() => {
-                    syncStateToFirebase();
-                }, 2000);
             }
         }
 
@@ -4436,6 +4438,7 @@
         }
 
         function selectProject(id) {
+            console.log('🎯 Hub: Selecting project:', id);
             state.currentProject = state.projects.find(p => p.id === id);
             state.currentArea = null;
 
@@ -4443,8 +4446,17 @@
                 state.currentArea = state.currentProject.areas[0];
             }
 
-            // Save the selection so it persists across refreshes
-            saveState();
+            // Store selection separately in LOCAL storage only (UI state, not shared data)
+            localStorage.setItem('pm_hub_current_project_id', id);
+            if (state.currentArea) {
+                localStorage.setItem('pm_hub_current_area_id', state.currentArea.id);
+            } else {
+                localStorage.removeItem('pm_hub_current_area_id');
+            }
+            console.log('✅ Hub: Selection stored locally - Project:', id, 'Area:', state.currentArea?.id);
+
+            // DO NOT call saveState() here - selection is UI state, not shared data
+            // saveState() writes to Firebase and triggers listeners, causing selection loss
 
             renderProjects();
             renderProjectDetails();
@@ -4513,9 +4525,16 @@
         }
 
         function selectArea(areaId) {
+            console.log('🎯 Hub: Selecting area:', areaId);
             state.currentArea = state.currentProject.areas.find(a => a.id === areaId);
-            saveState();
-            
+
+            // Store area selection in LOCAL storage only (UI state, not shared data)
+            localStorage.setItem('pm_hub_current_area_id', areaId);
+            console.log('✅ Hub: Area selection stored locally:', areaId);
+
+            // DO NOT call saveState() here - selection is UI state, not shared data
+            // saveState() writes to Firebase and triggers listeners, causing selection loss
+
             // Update only the tabs and content, not the whole project details
             document.getElementById('areaTabs').innerHTML = renderAreaTabs();
             document.getElementById('areaContent').innerHTML = renderAreaContent();
@@ -5756,13 +5775,8 @@
                         const projectIndex = hubState.projects.findIndex(p => p.id == state.currentProject.id);
 
                         if (projectIndex !== -1) {
+                            // Update project with new area
                             hubState.projects[projectIndex] = state.currentProject;
-
-                            await window.firestore.setDoc(docRef, {
-                                ...hubState,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: currentUser?.name || 'Hub User'
-                            });
 
                             // Log activity to Firebase
                             if (!hubState.activityLog) hubState.activityLog = [];
@@ -5783,6 +5797,7 @@
                                 source: 'hub'
                             });
 
+                            // Single write to Firebase with both project update and activity
                             await window.firestore.setDoc(docRef, {
                                 ...hubState,
                                 lastModified: new Date().toISOString(),
@@ -9966,9 +9981,11 @@
                         onStateUpdate: (newState, update) => {
                             console.log('🔄 Hub: State update received', update);
 
-                            // IMPORTANT: Preserve current selections before updating state
-                            const currentProjectId = state.currentProject?.id;
-                            const currentAreaId = state.currentArea?.id;
+                            // IMPORTANT: Preserve current selections using stored IDs (survives Firebase replacements)
+                            const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
+                            const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
+
+                            console.log('🔍 Hub: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
 
                             // Update local state
                             state = newState;
@@ -9976,9 +9993,17 @@
                             // Restore current selections (maintaining references to actual objects)
                             if (currentProjectId) {
                                 state.currentProject = state.projects?.find(p => p.id === currentProjectId) || null;
+                                console.log('🎯 Hub: Project restored:', state.currentProject ? state.currentProject.name : 'NOT FOUND');
+
                                 if (state.currentProject && currentAreaId) {
                                     state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
+                                    console.log('🎯 Hub: Area restored:', state.currentArea ? state.currentArea.name : 'NOT FOUND');
+                                } else {
+                                    state.currentArea = null;
                                 }
+                            } else {
+                                state.currentProject = null;
+                                state.currentArea = null;
                             }
 
                             // Refresh ALL views to ensure everything is in sync
