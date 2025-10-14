@@ -4105,56 +4105,93 @@ End of Report
 
         function startManagerActivityFeedListener() {
             if (!window.firebaseEnabled || !window.db || !window.firestore) {
-                console.log('ℹ️ Manager Activity Feed: Firebase not available, real-time updates disabled');
+                console.log('ℹ️ Manager: Firebase not available, real-time updates disabled');
                 return;
             }
 
             try {
                 const docRef = window.firestore.doc(window.db, 'hubs', 'main');
 
-                console.log('🎧 Manager Activity Feed: Starting real-time listener...');
+                console.log('🎧 Manager: Starting UNIFIED real-time listener (activities + projects)...');
 
-                // Set up real-time listener for activity updates
+                // Set up real-time listener for ALL updates (activities AND projects)
                 managerActivityFeedUnsubscribe = window.firestore.onSnapshot(docRef, (doc) => {
                     if (doc.exists()) {
                         const data = doc.data();
 
-                        console.log('📊 Manager Activity Feed: Firebase update received');
+                        console.log('═══════════════════════════════════════');
+                        console.log('☁️ Manager: Firebase update received');
+                        console.log('═══════════════════════════════════════');
+                        console.log('Last synced by:', data.lastSyncedBy);
+                        console.log('Timestamp:', data.lastModified);
 
-                        // Merge activities and activityLog from Firebase
-                        const firebaseActivities = data.activities || [];
-                        const firebaseActivityLog = data.activityLog || [];
+                        // Update EVERYTHING from Firebase (like chat does)
+                        const oldActivityCount = (hubState.activities?.length || 0) + (hubState.activityLog?.length || 0);
+                        const newActivityCount = (data.activities?.length || 0) + (data.activityLog?.length || 0);
 
-                        // Only update if data changed
-                        const oldCount = (hubState.activities?.length || 0) + (hubState.activityLog?.length || 0);
-                        const newCount = firebaseActivities.length + firebaseActivityLog.length;
+                        const oldProjects = JSON.stringify(hubState.projects);
 
-                        if (oldCount !== newCount) {
-                            console.log(`📊 Manager Activity Feed: New activities detected (${oldCount} → ${newCount})`);
+                        // ALWAYS update hubState with latest Firebase data
+                        hubState.projects = data.projects || [];
+                        hubState.activities = data.activities || [];
+                        hubState.activityLog = data.activityLog || [];
+                        hubState.ourTeam = data.ourTeam || hubState.ourTeam || [];
+                        hubState.clientTeam = data.clientTeam || hubState.clientTeam || [];
+                        hubState.timeEntries = data.timeEntries || hubState.timeEntries || [];
 
-                            // Update state with latest Firebase data
-                            hubState.activities = firebaseActivities;
-                            hubState.activityLog = firebaseActivityLog;
+                        const newProjects = JSON.stringify(hubState.projects);
+                        const projectsChanged = oldProjects !== newProjects;
 
-                            // Save to localStorage
-                            localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+                        console.log('📊 Manager: Data updated from Firebase');
+                        console.log('  - Projects changed:', projectsChanged);
+                        console.log('  - Activity count:', oldActivityCount, '→', newActivityCount);
 
-                            // Refresh activity feed if currently viewing it
-                            if (currentManagementView === 'activity') {
-                                console.log('🔄 Manager Activity Feed: Refreshing display...');
-                                renderManagerActivityFeed();
-                            } else {
-                                console.log('📝 Manager Activity Feed: Updated in background (not currently viewing)');
+                        // Save to localStorage
+                        localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+
+                        // ALWAYS refresh UI (like chat does)
+                        console.log('🔄 Manager: Refreshing views...');
+
+                        // 1. Refresh activity feed
+                        if (oldActivityCount !== newActivityCount && currentManagementView === 'activity') {
+                            renderManagerActivityFeed();
+                        }
+
+                        // 2. Refresh management views if projects changed
+                        if (projectsChanged) {
+                            // Update selectedProject reference if in work mode
+                            if (currentMode === 'work' && selectedProject) {
+                                selectedProject = hubState.projects.find(p => p.id === selectedProject.id);
+                            }
+
+                            // Update managementProject reference if in manage mode
+                            if (currentMode === 'manage' && managementProject) {
+                                managementProject = hubState.projects.find(p => p.id === managementProject.id);
+
+                                // Refresh current management view
+                                if (currentManagementView === 'tasks') {
+                                    console.log('📋 Manager: Refreshing task list');
+                                    showManageTasks();
+                                } else if (currentManagementView === 'areas') {
+                                    console.log('📍 Manager: Refreshing areas');
+                                    showManageAreas();
+                                } else if (currentManagementView === 'team') {
+                                    console.log('👥 Manager: Refreshing team');
+                                    renderManagerTeam();
+                                }
                             }
                         }
+
+                        console.log('✅ Manager: All views refreshed');
+                        console.log('═══════════════════════════════════════');
                     }
                 }, (error) => {
-                    console.error('❌ Manager Activity Feed: Listener error:', error);
+                    console.error('❌ Manager: Listener error:', error);
                 });
 
-                console.log('✅ Manager Activity Feed: Real-time listener active');
+                console.log('✅ Manager: Real-time listener active');
             } catch (error) {
-                console.error('❌ Manager Activity Feed: Failed to start listener:', error);
+                console.error('❌ Manager: Failed to start listener:', error);
             }
         }
 

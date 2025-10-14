@@ -10209,50 +10209,108 @@
             try {
                 const docRef = window.firestore.doc(window.db, 'hubs', 'main');
 
-                console.log('🎧 Activity Feed: Starting real-time listener...');
+                console.log('🎧 Hub: Starting UNIFIED real-time listener (activities + projects)...');
 
-                // Set up real-time listener for activity updates
+                // Set up real-time listener for ALL updates (activities AND projects)
                 activityFeedUnsubscribe = window.firestore.onSnapshot(docRef, (doc) => {
                     if (doc.exists()) {
                         const data = doc.data();
 
-                        console.log('📊 Activity Feed: Firebase update received');
+                        console.log('═══════════════════════════════════════');
+                        console.log('☁️ Hub: Firebase update received');
+                        console.log('═══════════════════════════════════════');
+                        console.log('Last synced by:', data.lastSyncedBy);
+                        console.log('Timestamp:', data.lastModified);
 
-                        // Merge activities and activityLog from Firebase
-                        const firebaseActivities = data.activities || [];
-                        const firebaseActivityLog = data.activityLog || [];
+                        // Update EVERYTHING from Firebase (like chat does)
+                        const oldActivityCount = (state.activities?.length || 0) + (state.activityLog?.length || 0);
+                        const newActivityCount = (data.activities?.length || 0) + (data.activityLog?.length || 0);
 
-                        // Only update if data changed
-                        const oldCount = (state.activities?.length || 0) + (state.activityLog?.length || 0);
-                        const newCount = firebaseActivities.length + firebaseActivityLog.length;
+                        const oldProjectCount = state.projects?.length || 0;
+                        const newProjectCount = data.projects?.length || 0;
 
-                        if (oldCount !== newCount) {
-                            console.log(`📊 Activity Feed: New activities detected (${oldCount} → ${newCount})`);
+                        // ALWAYS update state with latest Firebase data
+                        const oldProjects = JSON.stringify(state.projects);
 
-                            // Update state with latest Firebase data
-                            state.activities = firebaseActivities;
-                            state.activityLog = firebaseActivityLog;
+                        state.projects = data.projects || [];
+                        state.activities = data.activities || [];
+                        state.activityLog = data.activityLog || [];
+                        state.ourTeam = data.ourTeam || state.ourTeam || [];
+                        state.clientTeam = data.clientTeam || state.clientTeam || [];
+                        state.timeEntries = data.timeEntries || state.timeEntries || [];
 
-                            // Save to localStorage
-                            localStorage.setItem('pmSystemState', JSON.stringify(state));
+                        const newProjects = JSON.stringify(state.projects);
+                        const projectsChanged = oldProjects !== newProjects;
 
-                            // Refresh activity feed if currently viewing it
-                            const activitySection = document.getElementById('activity-section');
-                            if (activitySection && activitySection.style.display !== 'none') {
-                                console.log('🔄 Activity Feed: Refreshing display...');
-                                renderActivityFeed();
-                            } else {
-                                console.log('📝 Activity Feed: Updated in background (not currently viewing)');
+                        console.log('📊 Hub: Data updated from Firebase');
+                        console.log('  - Projects changed:', projectsChanged);
+                        console.log('  - Activity count:', oldActivityCount, '→', newActivityCount);
+                        console.log('  - Project count:', oldProjectCount, '→', newProjectCount);
+
+                        // Restore current selections
+                        const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
+                        const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
+
+                        if (currentProjectId) {
+                            state.currentProject = state.projects.find(p => p.id === currentProjectId) || null;
+                            if (state.currentProject && currentAreaId) {
+                                state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
                             }
                         }
+
+                        // Save to localStorage
+                        localStorage.setItem('pmSystemState', JSON.stringify(state));
+
+                        // ALWAYS refresh UI (like chat does)
+                        console.log('🔄 Hub: Refreshing ALL views...');
+
+                        // 1. Projects list
+                        renderProjects();
+
+                        // 2. Dashboard metrics
+                        updateDashboard();
+
+                        // 3. Activity feed
+                        if (oldActivityCount !== newActivityCount) {
+                            const activitySection = document.getElementById('activity-section');
+                            if (activitySection && activitySection.style.display !== 'none') {
+                                renderActivityFeed();
+                            }
+                        }
+
+                        // 4. Task board (if viewing area)
+                        if (state.currentArea && projectsChanged) {
+                            const areaContent = document.getElementById('areaContent');
+                            if (areaContent) {
+                                const flatTasks = flattenTasks(state.currentArea.tasks || [], '');
+                                const taskCounts = {
+                                    todo: flatTasks.filter(t => t.status === 'todo').length,
+                                    progress: flatTasks.filter(t => t.status === 'progress').length,
+                                    done: flatTasks.filter(t => t.status === 'done').length
+                                };
+                                console.log('📋 Hub: Refreshing task board - Todo:', taskCounts.todo, '| Progress:', taskCounts.progress, '| Done:', taskCounts.done);
+                                areaContent.innerHTML = renderAreaContent();
+                            }
+                        }
+
+                        // 5. Project details (if viewing)
+                        if (state.currentProject) {
+                            const projectDetails = document.getElementById('projectDetails');
+                            if (projectDetails && projectDetails.style.display !== 'none') {
+                                renderProjectDetails();
+                            }
+                        }
+
+                        console.log('✅ Hub: All views refreshed');
+                        console.log('═══════════════════════════════════════');
                     }
                 }, (error) => {
-                    console.error('❌ Activity Feed: Listener error:', error);
+                    console.error('❌ Hub: Listener error:', error);
                 });
 
-                console.log('✅ Activity Feed: Real-time listener active');
+                console.log('✅ Hub: Real-time listener active');
             } catch (error) {
-                console.error('❌ Activity Feed: Failed to start listener:', error);
+                console.error('❌ Hub: Failed to start listener:', error);
             }
         }
 
