@@ -9887,20 +9887,27 @@
                             // 5. Activity feed (always refresh to show latest)
                             renderActivityFeed();
 
-                            // 6. If chat is open, refresh messages
-                            const chatSection = document.getElementById('chat-messages-container');
-                            if (chatSection && state.selectedTaskForChat) {
+                            // 6. If chat is open, refresh messages immediately
+                            if (currentCommTask) {
                                 // Find updated task
-                                const project = state.projects?.find(p => p.id === state.selectedTaskForChat.projectId);
+                                const project = state.projects?.find(p => p.id === currentCommTask.projectId);
                                 if (project) {
-                                    const area = project.areas?.find(a => a.id === state.selectedTaskForChat.areaId);
+                                    const area = project.areas?.find(a => a.id === currentCommTask.areaId);
                                     if (area) {
-                                        const task = area.tasks?.find(t => t.wbs === state.selectedTaskForChat.wbs);
+                                        const task = area.tasks?.find(t => t.wbs === currentCommTask.taskWbs);
                                         if (task) {
-                                            state.selectedTaskForChat = task;
-                                            // Refresh chat if it's in the Chat tab
-                                            if (document.querySelector('.nav-tab.active')?.textContent.includes('Chat')) {
+                                            // Update the task reference
+                                            currentCommTask.task = task;
+
+                                            // Refresh chat if it's visible
+                                            const chatContainer = document.getElementById('comm-chat-container');
+                                            if (chatContainer && chatContainer.style.display !== 'none') {
+                                                console.log('💬 Hub: Chat update detected, refreshing messages');
                                                 renderCommMessages();
+                                                markCommMessagesRead();
+
+                                                // Update message count for polling
+                                                window.hubLastMessageCount = task.conversation?.messages?.length || 0;
                                             }
                                         }
                                     }

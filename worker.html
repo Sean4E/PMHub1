@@ -3355,11 +3355,15 @@ End of Report
                                                 areaName: area.name
                                             };
 
-                                            // If chat is open, refresh messages
+                                            // If chat is open, refresh messages immediately
                                             const chatModal = document.getElementById('task-chat-modal');
                                             if (chatModal && chatModal.classList.contains('active')) {
+                                                console.log('💬 Worker: Chat update detected, refreshing messages');
                                                 renderChatMessages();
-                                                console.log('💬 Worker: Chat refreshed');
+                                                markChatMessagesRead();
+
+                                                // Update message count for polling
+                                                lastMessageCount = task.conversation?.messages?.length || 0;
                                             }
 
                                             // Update chat badge

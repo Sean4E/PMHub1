@@ -3507,7 +3507,7 @@
                                     console.log('👥 Manager: Team view refreshed');
                                 }
 
-                                // If chat modal is open, refresh messages
+                                // If chat modal is open, refresh messages immediately
                                 if (currentChatTask) {
                                     const chatModal = document.getElementById('task-chat-modal');
                                     if (chatModal && chatModal.classList.contains('active')) {
@@ -3516,8 +3516,12 @@
                                             const task = area.tasks?.find(t => t.wbs == currentChatTask.taskWbs);
                                             if (task) {
                                                 currentChatTask.task = task;
+                                                console.log('💬 Manager: Chat update detected, refreshing messages');
                                                 renderChatMessages();
-                                                console.log('💬 Manager: Chat refreshed');
+                                                markChatMessagesRead();
+
+                                                // Update message count for polling
+                                                lastMessageCount = task.conversation?.messages?.length || 0;
                                             }
                                         }
                                     }
