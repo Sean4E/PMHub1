@@ -30,18 +30,34 @@ class PMHubSync {
         try {
             console.log(`🔥 ${this.appName}: Writing to Firebase immediately (section: ${section})`);
 
-            // Prepare clean state for Firebase
+            // Prepare clean state for Firebase - ALL shared data
             const stateToSync = {
+                // Core data (synced globally)
                 projects: Array.isArray(state.projects) ? state.projects : [],
                 ourTeam: Array.isArray(state.ourTeam) ? state.ourTeam : [],
                 clientTeam: Array.isArray(state.clientTeam) ? state.clientTeam : [],
                 clients: Array.isArray(state.clients) ? state.clients : [],
                 tools: Array.isArray(state.tools) ? state.tools : [],
+
+                // Activity & Logging (synced globally)
                 activities: Array.isArray(state.activities) ? state.activities : [],
                 activityLog: Array.isArray(state.activityLog) ? state.activityLog : [],
+
+                // Reports & Time Tracking (synced globally)
                 reports: Array.isArray(state.reports) ? state.reports : [],
                 timeEntries: Array.isArray(state.timeEntries) ? state.timeEntries : [],
+
+                // Notifications (synced globally)
+                notifications: Array.isArray(state.notifications) ? state.notifications : [],
+
+                // Project Management
                 usedProjectNumbers: Array.isArray(state.usedProjectNumbers) ? state.usedProjectNumbers : [],
+
+                // Configuration (synced globally)
+                folderTemplate: Array.isArray(state.folderTemplate) ? state.folderTemplate : [],
+                settings: state.settings || {},
+                modules: state.modules || {},
+                calendarFilters: state.calendarFilters || { type: 'all', project: 'all' },
 
                 // Metadata
                 lastModified: new Date().toISOString(),

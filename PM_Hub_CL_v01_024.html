@@ -10368,16 +10368,35 @@
 
                             console.log('🔍 Hub: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
 
-                            // MERGE strategy: Update data arrays but preserve UI state
+                            // MERGE strategy: Update ALL shared data but preserve UI state
                             // This prevents the jarring "state replacement" that loses selections
+
+                            // Core data
                             state.projects = newState.projects || [];
                             state.ourTeam = newState.ourTeam || state.ourTeam || [];
                             state.clientTeam = newState.clientTeam || state.clientTeam || [];
                             state.clients = newState.clients || state.clients || [];
                             state.tools = newState.tools || state.tools || [];
+
+                            // Activity & Logging
                             state.activities = newState.activities || state.activities || [];
                             state.activityLog = newState.activityLog || state.activityLog || [];
+
+                            // Reports & Time Tracking
+                            state.reports = newState.reports || state.reports || [];
+                            state.timeEntries = newState.timeEntries || state.timeEntries || [];
+
+                            // Notifications
+                            state.notifications = newState.notifications || state.notifications || [];
+
+                            // Project Management
                             state.usedProjectNumbers = newState.usedProjectNumbers || state.usedProjectNumbers || [];
+
+                            // Configuration (sync but don't override if missing)
+                            if (newState.folderTemplate) state.folderTemplate = newState.folderTemplate;
+                            if (newState.settings) state.settings = newState.settings;
+                            if (newState.modules) state.modules = newState.modules;
+                            if (newState.calendarFilters) state.calendarFilters = newState.calendarFilters;
 
                             // Restore current selections (maintaining references to actual objects)
                             if (currentProjectId) {
