@@ -10417,13 +10417,18 @@
                         appName: 'Admin',
                         currentUser: currentUser,
                         onStateUpdate: (newState, update) => {
-                            console.log('🔄 Hub: State update received', update);
+                            console.log('═══════════════════════════════════════');
+                            console.log('🔄 HUB: State update received from Firebase');
+                            console.log('═══════════════════════════════════════');
+                            console.log('Update info:', update);
+                            console.log('Section:', update.section);
+                            console.log('Synced by:', update.syncedBy);
 
                             // IMPORTANT: Preserve current selections using stored IDs (survives Firebase replacements)
                             const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
                             const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
 
-                            console.log('🔍 Hub: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
+                            console.log('🔍 Hub: Current selections - Project ID:', currentProjectId, '| Area ID:', currentAreaId);
 
                             // MERGE strategy: Update ALL shared data but preserve UI state
                             // This prevents the jarring "state replacement" that loses selections
@@ -10474,23 +10479,31 @@
                             // Refresh ALL views to ensure everything is in sync
                             // This ensures any linked data (assignees, team members, etc.) updates everywhere
 
-                            // 1. Projects & Tasks (always refresh)
+                            // 1. Projects & Tasks (ALWAYS refresh - like chat does)
                             renderProjects();
 
-                            // 2. If viewing project details, refresh that view
+                            // 2. Refresh project/area views (works regardless of current view)
                             if (state.currentProject) {
-                                // If on project details view, refresh it
+                                // Refresh project details if element exists
                                 const projectDetails = document.getElementById('projectDetails');
                                 if (projectDetails && projectDetails.style.display !== 'none') {
                                     renderProjectDetails();
                                 }
 
-                                // 🔥 CRITICAL: If viewing area content (task board), refresh it to show status changes
+                                // 🔥 CRITICAL: ALWAYS refresh task board when area is selected
+                                // Works even if user is viewing dashboard or other sections
                                 if (state.currentArea) {
                                     const areaContent = document.getElementById('areaContent');
                                     if (areaContent) {
+                                        // Count tasks by status
+                                        const flatTasks = flattenTasks(state.currentArea.tasks || [], '');
+                                        const taskCounts = {
+                                            todo: flatTasks.filter(t => t.status === 'todo').length,
+                                            progress: flatTasks.filter(t => t.status === 'progress').length,
+                                            done: flatTasks.filter(t => t.status === 'done').length
+                                        };
+                                        console.log('📊 Hub: Refreshing task board - Todo:', taskCounts.todo, '| Progress:', taskCounts.progress, '| Done:', taskCounts.done);
                                         areaContent.innerHTML = renderAreaContent();
-                                        console.log('🔄 Hub: Area content refreshed (task board updated)');
                                     }
                                 }
                             }

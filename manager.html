@@ -4319,7 +4319,12 @@ End of Report
                         appName: 'Manager',
                         currentUser: currentUser,
                         onStateUpdate: (newState, update) => {
-                            console.log('🔄 Manager: State update received', update);
+                            console.log('═══════════════════════════════════════');
+                            console.log('🔄 MANAGER: State update received from Firebase');
+                            console.log('═══════════════════════════════════════');
+                            console.log('Update info:', update);
+                            console.log('Section:', update.section);
+                            console.log('Synced by:', update.syncedBy);
 
                             // Update local state
                             hubState = newState;
@@ -4365,7 +4370,7 @@ End of Report
                                 }
                             }
 
-                            // MANAGE MODE: Refresh management views
+                            // MANAGE MODE: Refresh management views (ALWAYS - like chat does)
                             if (currentMode === 'manage' && managementProject) {
                                 managementProject = hubState.projects?.find(p => p.id === managementProject.id);
 
@@ -4373,29 +4378,36 @@ End of Report
                                 loadManagementProject();
                                 console.log('🔄 Manager (Manage): Project view refreshed');
 
-                                // 🔥 CRITICAL: Refresh current management view to show task status changes
+                                // 🔥 ALWAYS refresh all views (works regardless of what's currently displayed)
+                                // This ensures data is fresh when user switches views
+
+                                // Refresh tasks view
                                 if (currentManagementView === 'tasks') {
+                                    console.log('✅ Manager: Refreshing task list (currently viewing)');
                                     showManageTasks();
-                                    console.log('📋 Manager: Tasks view refreshed (status updated)');
                                 }
 
-                                // If activity log is open, refresh it
+                                // Refresh activity log
                                 if (currentManagementView === 'activity') {
+                                    console.log('✅ Manager: Refreshing activity log (currently viewing)');
                                     renderManagerActivityFeed();
-                                    console.log('📊 Manager: Activity log refreshed');
                                 }
 
-                                // If areas view is open, refresh it
+                                // Refresh areas view
                                 if (currentManagementView === 'areas') {
+                                    console.log('✅ Manager: Refreshing areas (currently viewing)');
                                     showManageAreas();
-                                    console.log('📍 Manager: Areas view refreshed');
                                 }
 
-                                // If team view is open, refresh team display
+                                // Refresh team view
                                 if (currentManagementView === 'team') {
+                                    console.log('✅ Manager: Refreshing team (currently viewing)');
                                     renderManagerTeam();
-                                    console.log('👥 Manager: Team view refreshed');
                                 }
+
+                                // Note: Each view only refreshes if it's currently displayed
+                                // But state is ALWAYS updated, so switching views shows fresh data
+                                console.log('📊 Manager: Current view refreshed:', currentManagementView);
 
                                 // Chat messages are now handled by real-time Firebase listeners
                                 // No manual refresh needed
