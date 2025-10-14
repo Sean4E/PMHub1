@@ -1510,6 +1510,10 @@
         let clockedInTime = null;
         let currentMode = 'work'; // 'work' or 'manage'
 
+        // Chat Polling State
+        let chatPollInterval = null;
+        let lastMessageCount = 0;
+
         // Edit state tracking
         let editingTaskAreaId = null;
         let editingTaskWbs = null;
@@ -2713,6 +2717,9 @@
             // Show modal
             document.getElementById('task-chat-modal').classList.add('active');
 
+            // Start polling for new messages (like WhatsApp/Slack)
+            startChatPolling();
+
             // Focus input
             setTimeout(() => {
                 document.getElementById('chat-input').focus();
@@ -2722,6 +2729,72 @@
         function closeTaskChat() {
             document.getElementById('task-chat-modal').classList.remove('active');
             currentChatTask = null;
+
+            // Stop polling when chat is closed
+            stopChatPolling();
+        }
+
+        function startChatPolling() {
+            // Clear any existing interval
+            stopChatPolling();
+
+            console.log('💬 Manager: Starting chat polling (checking every 2 seconds)');
+
+            // Store initial message count
+            lastMessageCount = currentChatTask.task.conversation?.messages?.length || 0;
+
+            // Poll every 2 seconds for new messages
+            chatPollInterval = setInterval(() => {
+                refreshChatMessages();
+            }, 2000);
+        }
+
+        function stopChatPolling() {
+            if (chatPollInterval) {
+                clearInterval(chatPollInterval);
+                chatPollInterval = null;
+                console.log('💬 Manager: Stopped chat polling');
+            }
+        }
+
+        function refreshChatMessages() {
+            if (!currentChatTask) return;
+
+            // Reload hub state to get latest messages
+            const stateStr = localStorage.getItem('pmSystemState');
+            if (!stateStr) return;
+
+            hubState = JSON.parse(stateStr);
+
+            // Find the updated project
+            const updatedProject = hubState.projects?.find(p => p.id == managementProject.id);
+            if (!updatedProject) return;
+
+            // Find the updated area and task
+            const updatedArea = updatedProject.areas?.find(a => a.id == currentChatTask.areaId);
+            if (!updatedArea) return;
+
+            const updatedTask = updatedArea.tasks?.find(t => t.wbs == currentChatTask.taskWbs);
+            if (!updatedTask) return;
+
+            // Check if there are new messages
+            const newMessageCount = updatedTask.conversation?.messages?.length || 0;
+
+            if (newMessageCount > lastMessageCount) {
+                console.log(`💬 Manager: ${newMessageCount - lastMessageCount} new message(s) detected`);
+
+                // Update currentChatTask with new data
+                currentChatTask.task = updatedTask;
+
+                // Re-render messages
+                renderChatMessages();
+
+                // Mark new messages as read
+                markChatMessagesRead();
+
+                // Update count
+                lastMessageCount = newMessageCount;
+            }
         }
 
         function renderChatMessages() {

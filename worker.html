@@ -1034,6 +1034,10 @@
         let qrScanner = null;
         let scannedToolId = null;
 
+        // Chat Polling State
+        let chatPollInterval = null;
+        let lastMessageCount = 0;
+
         // Helper function to check if task is assigned to current user
         function isTaskAssignedToMe(task) {
             if (!currentUser) return false;
@@ -1385,6 +1389,9 @@
             // Show modal
             document.getElementById('task-chat-modal').classList.add('active');
 
+            // Start polling for new messages (like WhatsApp/Slack)
+            startChatPolling();
+
             // Focus input
             setTimeout(() => {
                 document.getElementById('chat-input').focus();
@@ -1394,6 +1401,75 @@
         function closeTaskChat() {
             document.getElementById('task-chat-modal').classList.remove('active');
             document.getElementById('chat-input').value = '';
+
+            // Stop polling when chat is closed
+            stopChatPolling();
+        }
+
+        function startChatPolling() {
+            // Clear any existing interval
+            stopChatPolling();
+
+            console.log('💬 Worker: Starting chat polling (checking every 2 seconds)');
+
+            // Store initial message count
+            lastMessageCount = currentTask.conversation?.messages?.length || 0;
+
+            // Poll every 2 seconds for new messages
+            chatPollInterval = setInterval(() => {
+                refreshChatMessages();
+            }, 2000);
+        }
+
+        function stopChatPolling() {
+            if (chatPollInterval) {
+                clearInterval(chatPollInterval);
+                chatPollInterval = null;
+                console.log('💬 Worker: Stopped chat polling');
+            }
+        }
+
+        function refreshChatMessages() {
+            // Reload hub state to get latest messages
+            const stateStr = localStorage.getItem('pmSystemState');
+            if (!stateStr) return;
+
+            hubState = JSON.parse(stateStr);
+
+            // Find the updated task
+            const project = hubState.projects?.find(p => p.id == currentTask.projectId);
+            if (!project) return;
+
+            const area = project.areas?.find(a => a.id == currentTask.areaId);
+            if (!area) return;
+
+            const updatedTask = area.tasks?.find(t => t.wbs == currentTask.wbs);
+            if (!updatedTask) return;
+
+            // Check if there are new messages
+            const newMessageCount = updatedTask.conversation?.messages?.length || 0;
+
+            if (newMessageCount > lastMessageCount) {
+                console.log(`💬 Worker: ${newMessageCount - lastMessageCount} new message(s) detected`);
+
+                // Update currentTask with new data
+                currentTask = {
+                    ...updatedTask,
+                    projectId: project.id,
+                    projectName: project.name,
+                    areaId: area.id,
+                    areaName: area.name
+                };
+
+                // Re-render messages
+                renderChatMessages();
+
+                // Mark new messages as read
+                markChatMessagesRead();
+
+                // Update count
+                lastMessageCount = newMessageCount;
+            }
         }
 
         function renderChatMessages() {

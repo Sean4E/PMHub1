@@ -8250,12 +8250,22 @@
 
         // UI Functions
         function switchSection(section) {
+            // Stop chat polling when leaving Chat tab
+            if (window.hubChatPollInterval) {
+                clearInterval(window.hubChatPollInterval);
+                window.hubChatPollInterval = null;
+                console.log('💬 Hub: Stopped chat polling');
+            }
+
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
             document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
             document.getElementById(`${section}-section`).style.display = 'grid';
 
-            if (section === 'calendar') {
+            // Start chat polling when entering Chat tab (modules section)
+            if (section === 'modules') {
+                startHubChatPolling();
+            } else if (section === 'calendar') {
                 // Populate project filter dropdown
                 const projectFilterEl = document.getElementById('projectFilter');
                 if (projectFilterEl) {
@@ -9158,6 +9168,79 @@
 
             // Mark messages as read
             markCommMessagesRead();
+
+            // Restart polling for this specific task
+            startHubChatPolling();
+        }
+
+        function startHubChatPolling() {
+            // Clear any existing interval
+            if (window.hubChatPollInterval) {
+                clearInterval(window.hubChatPollInterval);
+                window.hubChatPollInterval = null;
+            }
+
+            // Only start polling if we have a selected task
+            if (!currentCommTask) return;
+
+            console.log('💬 Hub: Starting chat polling (checking every 2 seconds)');
+
+            // Store initial message count
+            window.hubLastMessageCount = currentCommTask.task.conversation?.messages?.length || 0;
+
+            // Poll every 2 seconds for new messages
+            window.hubChatPollInterval = setInterval(() => {
+                refreshHubChatMessages();
+            }, 2000);
+        }
+
+        function refreshHubChatMessages() {
+            if (!currentCommTask) {
+                // Stop polling if no task selected
+                if (window.hubChatPollInterval) {
+                    clearInterval(window.hubChatPollInterval);
+                    window.hubChatPollInterval = null;
+                }
+                return;
+            }
+
+            // Reload state to get latest messages
+            const stateStr = localStorage.getItem('pmSystemState');
+            if (!stateStr) return;
+
+            const freshState = JSON.parse(stateStr);
+
+            // Find the updated task
+            const project = freshState.projects?.find(p => p.id == currentCommTask.projectId);
+            if (!project) return;
+
+            const area = project.areas?.find(a => a.id == currentCommTask.areaId);
+            if (!area) return;
+
+            const updatedTask = area.tasks?.find(t => t.wbs == currentCommTask.taskWbs);
+            if (!updatedTask) return;
+
+            // Check if there are new messages
+            const newMessageCount = updatedTask.conversation?.messages?.length || 0;
+
+            if (newMessageCount > window.hubLastMessageCount) {
+                console.log(`💬 Hub: ${newMessageCount - window.hubLastMessageCount} new message(s) detected`);
+
+                // Update currentCommTask with new data
+                currentCommTask.task = updatedTask;
+
+                // Also update global state
+                state = freshState;
+
+                // Re-render messages
+                renderCommMessages();
+
+                // Mark new messages as read
+                markCommMessagesRead();
+
+                // Update count
+                window.hubLastMessageCount = newMessageCount;
+            }
         }
 
         function renderCommMessages() {
