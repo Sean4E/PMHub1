@@ -1406,6 +1406,10 @@
                 <div class="status-dot" id="statusDot"></div>
                 <span id="statusText" style="color: var(--text-primary); font-weight: 500;">Offline</span>
             </div>
+            <div id="driveAccountInfo" style="display: none; margin-left: 12px; padding: 6px 12px; background: var(--glass-bg); border-radius: 8px; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--glass-border);">
+                <span style="margin-right: 4px;">📁</span>
+                <span id="driveAccountEmail">Loading...</span>
+            </div>
             <button class="btn" onclick="openSearchModal()" style="margin-left: 12px; background: var(--glass-bg);" title="Search (Ctrl+K)">
                 🔍
             </button>
@@ -2913,26 +2917,46 @@
 
         async function loadState() {
             console.log('📂 Loading system state...');
+            console.log('🔥 Firebase enabled:', !!window.firebaseEnabled);
 
-            // Load from localStorage first
-            const saved = localStorage.getItem('pmSystemState');
-            let localState = null;
+            let finalState = null;
 
-            if (saved) {
-                localState = JSON.parse(saved);
-                console.log('✓ Local state loaded from localStorage');
-            }
-
-            // Try to load from Firebase and merge
+            // FIREBASE IS PRIMARY SOURCE OF TRUTH
             if (window.firebaseEnabled) {
+                console.log('☁️ Loading from Firebase (primary source)...');
                 const firebaseState = await loadStateFromFirebase();
+
                 if (firebaseState) {
-                    localState = mergeStates(localState || {}, firebaseState);
+                    finalState = firebaseState;
+                    console.log('✅ Using Firebase state (primary)');
+                    console.log('   - Projects:', firebaseState.projects?.length || 0);
+                    console.log('   - Last modified:', firebaseState.lastModified);
+                    console.log('   - Last synced by:', firebaseState.lastSyncedBy);
+
+                    // Save Firebase state to localStorage as cache
+                    localStorage.setItem('pmSystemState', JSON.stringify(firebaseState));
+                    console.log('💾 Firebase state cached to localStorage');
+                } else {
+                    console.log('⚠️ No Firebase data found, trying localStorage as fallback...');
+                    // Fallback to localStorage only if Firebase has no data
+                    const saved = localStorage.getItem('pmSystemState');
+                    if (saved) {
+                        finalState = JSON.parse(saved);
+                        console.log('✓ Using localStorage as fallback');
+                    }
+                }
+            } else {
+                // Firebase not available, use localStorage only
+                console.log('ℹ️ Firebase not enabled, using localStorage only');
+                const saved = localStorage.getItem('pmSystemState');
+                if (saved) {
+                    finalState = JSON.parse(saved);
+                    console.log('✓ Local state loaded from localStorage');
                 }
             }
 
-            if (localState) {
-                const savedState = localState;
+            if (finalState) {
+                const savedState = finalState;
 
                 // Save IDs of current selections before merging
                 const currentProjectId = savedState.currentProject?.id;
@@ -3608,6 +3632,9 @@
                             checkMainFolder().catch(err => console.error('Drive folder check failed:', err));
                             loadUpcomingEvents().catch(err => console.error('Calendar load failed:', err));
 
+                            // Get and display Google account info
+                            updateDriveAccountInfo().catch(err => console.error('Failed to get account info:', err));
+
                             // Schedule token refresh (assume 1 hour expiry if not specified)
                             scheduleTokenRefresh(3600);
 
@@ -3685,6 +3712,9 @@
                         await checkMainFolder();
                         loadUpcomingEvents();
 
+                        // Get and display Google account info
+                        await updateDriveAccountInfo();
+
                         // Schedule token refresh
                         const expiresIn = resp.expires_in || 3600;
                         scheduleTokenRefresh(expiresIn);
@@ -3705,6 +3735,45 @@
             }
         }
 
+        async function updateDriveAccountInfo() {
+            try {
+                // Get user info from Google Drive API
+                const response = await gapi.client.drive.about.get({
+                    fields: 'user(emailAddress,displayName)'
+                });
+
+                if (response.result && response.result.user) {
+                    const email = response.result.user.emailAddress;
+                    const displayName = response.result.user.displayName;
+
+                    console.log('✓ Google Drive account:', email);
+
+                    // Update UI
+                    const accountInfo = document.getElementById('driveAccountInfo');
+                    const accountEmail = document.getElementById('driveAccountEmail');
+
+                    if (accountInfo && accountEmail) {
+                        accountEmail.textContent = email;
+                        accountEmail.title = displayName || email;
+                        accountInfo.style.display = 'flex';
+                        accountInfo.style.alignItems = 'center';
+                    }
+
+                    // Store in state for reference
+                    state.driveAccount = {
+                        email: email,
+                        displayName: displayName
+                    };
+
+                    // Save to localStorage
+                    localStorage.setItem('drive_account_email', email);
+                }
+            } catch (error) {
+                console.error('❌ Could not fetch Google account info:', error);
+                // Non-critical error, just log it
+            }
+        }
+
         function disconnect() {
             const token = gapi.client.getToken();
             if (token) {
@@ -3717,6 +3786,10 @@
                 document.getElementById('connectBtn').textContent = 'Connect Google';
                 document.getElementById('connectBtn').onclick = connectServices;
 
+                // Hide Drive account info
+                const accountInfo = document.getElementById('driveAccountInfo');
+                if (accountInfo) accountInfo.style.display = 'none';
+
                 // Update admin buttons
                 if (document.getElementById('connectBtnAdmin')) {
                     document.getElementById('connectBtnAdmin').textContent = '🔗 Connect Google';
@@ -3725,6 +3798,10 @@
                 if (document.getElementById('syncDriveBtnAdmin')) {
                     document.getElementById('syncDriveBtnAdmin').style.display = 'none';
                 }
+
+                // Clear stored account info
+                localStorage.removeItem('drive_account_email');
+                delete state.driveAccount;
 
                 // Clear token refresh timers
                 if (tokenExpiryTimer) clearTimeout(tokenExpiryTimer);
