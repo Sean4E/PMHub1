@@ -3351,6 +3351,9 @@
                     pin: member.pin || generateDefaultPin(index + 100),
                     moduleAccess: member.moduleAccess || ['reports']
                 }));
+
+                // ✅ MIGRATION: Add parent references to existing tasks
+                migrateTasksWithParentReferences();
             } else {
                 state.ourTeam = defaultOurTeam;
                 state.clientTeam = defaultClientTeam;
@@ -3369,6 +3372,63 @@
                     assignWbsToTasks(task.children, wbs);
                 }
             });
+        }
+
+        function migrateTasksWithParentReferences() {
+            let migrated = false;
+
+            if (state.projects) {
+                state.projects.forEach(project => {
+                    if (project.areas) {
+                        project.areas.forEach(area => {
+                            if (area.tasks) {
+                                area.tasks.forEach(task => {
+                                    // Add parent references if missing
+                                    if (!task.projectId) {
+                                        task.projectId = project.id;
+                                        migrated = true;
+                                    }
+                                    if (!task.areaId) {
+                                        task.areaId = area.id;
+                                        migrated = true;
+                                    }
+
+                                    // Recursively handle subtasks
+                                    if (task.children && task.children.length > 0) {
+                                        migrated = migrateChildTasks(task.children, project.id, area.id) || migrated;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (migrated) {
+                console.log('✓ Migrated tasks with parent references');
+                saveState('migration');
+                return true;
+            }
+            return false;
+        }
+
+        function migrateChildTasks(children, projectId, areaId) {
+            let migrated = false;
+            children.forEach(child => {
+                if (!child.projectId) {
+                    child.projectId = projectId;
+                    migrated = true;
+                }
+                if (!child.areaId) {
+                    child.areaId = areaId;
+                    migrated = true;
+                }
+
+                if (child.children && child.children.length > 0) {
+                    migrated = migrateChildTasks(child.children, projectId, areaId) || migrated;
+                }
+            });
+            return migrated;
         }
 
         async function saveState(section = 'general') {
@@ -5315,7 +5375,9 @@
                     priority: document.getElementById('taskPriority').value,
                     description: document.getElementById('taskDescription').value,
                     status: 'todo',
-                    children: []
+                    children: [],
+                    projectId: state.currentProject.id,  // ✅ Parent reference
+                    areaId: state.currentArea.id         // ✅ Parent reference
                 };
 
                 state.currentArea.tasks.push(task);

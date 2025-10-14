@@ -1116,12 +1116,19 @@
                         if (area) {
                             const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
                             if (task) {
-                                currentTask = task;
+                                // ✅ Task now has projectId/areaId built-in from Hub!
+                                // Keep the display names from current context
+                                currentTask = {
+                                    ...task,
+                                    projectName: project.name,
+                                    areaName: area.name
+                                };
 
                                 const chatModal = document.getElementById('task-chat-modal');
                                 if (chatModal && chatModal.classList.contains('active')) {
-                                    renderChatMessages();
-                                    console.log('💬 Worker: Chat refreshed via BroadcastChannel');
+                                    // Note: Chat messages are now handled by real-time Firebase listeners
+                                    // This section is kept for other task updates
+                                    console.log('💬 Worker: Task updated via BroadcastChannel');
                                 }
 
                                 updateChatBadge();
@@ -1375,7 +1382,22 @@
                 return;
             }
 
-            if (!currentTask) return;
+            if (!currentTask) {
+                showToast('No task selected', 'error');
+                return;
+            }
+
+            // Validate required fields (should always be present now with parent references)
+            if (!currentTask.projectId || !currentTask.areaId || !currentTask.wbs) {
+                console.error('💬 Chat: Missing task info - this should not happen!', {
+                    projectId: currentTask.projectId,
+                    areaId: currentTask.areaId,
+                    wbs: currentTask.wbs,
+                    fullTask: currentTask
+                });
+                showToast('Task data error - please restart the task', 'error');
+                return;
+            }
 
             // Update chat header
             document.getElementById('chat-task-name').textContent = currentTask.name;
