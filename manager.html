@@ -1217,21 +1217,52 @@
     </div>
 
     <!-- Report Modal -->
-    <div id="report-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">📸 Send Report</h3>
-                <button class="close-btn" onclick="closeReportModal()">×</button>
+    <div id="report-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; overflow-y: auto;">
+        <div style="max-width: 700px; margin: 20px auto; background: var(--bg-dark); border-radius: 16px; padding: 24px; border: 1px solid var(--glass-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 20px;">📸 Send Report</h3>
+                <button onclick="closeReportModal()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; line-height: 1;">×</button>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Report Notes</label>
-                <textarea id="report-text" placeholder="Describe the work completed, any issues, or updates..." rows="6"></textarea>
+            <!-- Camera Controls -->
+            <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">CAPTURE MEDIA</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-sm btn-start" id="start-camera-btn" onclick="startCamera()">📷 Open Camera</button>
+                    <button class="btn-sm" id="switch-camera-btn" onclick="switchCamera()" style="display: none; background: var(--accent-primary); color: white;">🔄 Switch</button>
+                    <button class="btn-sm btn-start" id="take-photo-btn" onclick="takePhoto()" style="display: none;">📸 Take Photo</button>
+                    <button class="btn-sm btn-danger" id="start-record-btn" onclick="startRecording()" style="display: none; background: var(--accent-danger); color: white;">🎥 Record Video</button>
+                    <button class="btn-sm btn-danger" id="stop-record-btn" onclick="stopRecording()" style="display: none; background: var(--accent-danger); color: white;">⏹️ Stop Recording</button>
+                    <button class="btn-sm" id="close-camera-btn" onclick="closeCamera()" style="display: none; background: var(--glass-bg); border: 1px solid var(--glass-border); color: white;">✕ Close Camera</button>
+                </div>
+
+                <!-- Video Preview -->
+                <div id="camera-preview-container" style="display: none; margin-top: 16px;">
+                    <video id="camera-preview" autoplay playsinline muted style="width: 100%; max-height: 350px; border-radius: 12px; background: #000;"></video>
+                    <canvas id="photo-canvas" style="display: none;"></canvas>
+                </div>
             </div>
 
-            <button class="big-btn primary" onclick="submitReport()">
-                📤 Submit Report
-            </button>
+            <!-- Captured Media Gallery -->
+            <div id="media-gallery-container" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">ATTACHED MEDIA</div>
+                    <div style="font-size: 12px; color: var(--text-tertiary);" id="media-count">0 files</div>
+                </div>
+                <div id="media-gallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;"></div>
+            </div>
+
+            <!-- Text Report -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: var(--text-secondary);">REPORT NOTES</label>
+                <textarea id="report-text" placeholder="Describe the work completed, any issues, or updates..." rows="6" style="width: 100%; padding: 14px; background: rgba(21, 25, 50, 0.9); border: 1px solid var(--glass-border); border-radius: 12px; color: #ffffff; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+            </div>
+
+            <!-- Submit -->
+            <div style="display: flex; gap: 12px;">
+                <button class="big-btn primary" onclick="submitReport()" style="flex: 1;">📤 Submit Report</button>
+                <button class="big-btn" onclick="closeReportModal()" style="flex: 1; background: var(--glass-bg); border: 1px solid var(--glass-border);">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -1579,6 +1610,13 @@
         let currentTask = null;
         let clockedInTime = null;
         let currentMode = 'work'; // 'work' or 'manage'
+
+        // Camera & Media State
+        let cameraStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isFrontCamera = false;
+        let capturedMedia = []; // Array to store multiple media files: [{blob, filename, type, preview}]
 
         // Real-Time Chat System
         let chatSystem = null;
@@ -2195,13 +2233,307 @@
 
         function closeReportModal() {
             document.getElementById('report-modal').style.display = 'none';
+            closeCamera();
+            capturedMedia = [];
+            document.getElementById('report-text').value = '';
+            resetCameraUI();
+        }
+
+        function resetCameraUI() {
+            document.getElementById('start-camera-btn').style.display = 'inline-block';
+            document.getElementById('switch-camera-btn').style.display = 'none';
+            document.getElementById('take-photo-btn').style.display = 'none';
+            document.getElementById('start-record-btn').style.display = 'none';
+            document.getElementById('stop-record-btn').style.display = 'none';
+            document.getElementById('close-camera-btn').style.display = 'none';
+            document.getElementById('camera-preview-container').style.display = 'none';
+            document.getElementById('media-gallery-container').style.display = 'none';
+        }
+
+        function updateMediaGallery() {
+            if (capturedMedia.length === 0) {
+                document.getElementById('media-gallery-container').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('media-gallery-container').style.display = 'block';
+            const count = document.getElementById('media-count');
+            count.textContent = `${capturedMedia.length} file${capturedMedia.length > 1 ? 's' : ''}`;
+
+            const gallery = document.getElementById('media-gallery');
+            gallery.innerHTML = capturedMedia.map((media, index) => {
+                const icon = media.type === 'photo' ? '📸' : '🎥';
+                return `
+                    <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.3);">
+                        ${media.type === 'photo'
+                            ? `<img src="${media.preview}" style="width: 100%; height: 120px; object-fit: cover;">`
+                            : `<video src="${media.preview}" style="width: 100%; height: 120px; object-fit: cover;"></video>`
+                        }
+                        <button onclick="removeMedia(${index})" style="position: absolute; top: 4px; right: 4px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;">×</button>
+                        <div style="position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.6); color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${icon}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeMedia(index) {
+            capturedMedia.splice(index, 1);
+            updateMediaGallery();
+            showToast('Media removed', 'info', 1500);
+        }
+
+        function closeCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            const video = document.getElementById('camera-preview');
+            if (video) {
+                video.srcObject = null;
+                video.pause();
+            }
+            resetCameraUI();
+        }
+
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: isFrontCamera ? 'user' : 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: true
+                };
+
+                console.log('📷 Manager: Starting camera...');
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                const video = document.getElementById('camera-preview');
+                video.srcObject = cameraStream;
+
+                video.setAttribute('autoplay', '');
+                video.setAttribute('playsinline', '');
+                video.setAttribute('muted', '');
+
+                await new Promise((resolve, reject) => {
+                    video.onloadedmetadata = async () => {
+                        try {
+                            await video.play();
+                            console.log('✓ Video playing');
+                            resolve();
+                        } catch (err) {
+                            console.error('Video play error:', err);
+                            reject(err);
+                        }
+                    };
+                });
+
+                document.getElementById('camera-preview-container').style.display = 'block';
+                document.getElementById('start-camera-btn').style.display = 'none';
+                document.getElementById('switch-camera-btn').style.display = 'inline-block';
+                document.getElementById('take-photo-btn').style.display = 'inline-block';
+                document.getElementById('start-record-btn').style.display = 'inline-block';
+                document.getElementById('close-camera-btn').style.display = 'inline-block';
+
+                console.log('✓ Manager: Camera started successfully');
+            } catch (error) {
+                console.error('❌ Camera error:', error);
+                let errorMessage = 'Camera error: ';
+
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Permission denied. Please allow camera access.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += 'Camera is already in use by another app.';
+                } else {
+                    errorMessage += error.message;
+                }
+
+                alert(errorMessage);
+            }
+        }
+
+        function switchCamera() {
+            isFrontCamera = !isFrontCamera;
+            closeCamera();
+            startCamera();
+        }
+
+        function takePhoto() {
+            const video = document.getElementById('camera-preview');
+            const canvas = document.getElementById('photo-canvas');
+
+            if (video.readyState < 2) {
+                alert('⚠️ Camera not ready yet. Please wait a moment.');
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    alert('❌ Failed to capture photo. Please try again.');
+                    return;
+                }
+
+                const now = new Date();
+                const filename = `photo_${now.toISOString().replace(/[:.]/g,'-')}.jpg`;
+                const preview = URL.createObjectURL(blob);
+
+                capturedMedia.push({
+                    blob: blob,
+                    filename: filename,
+                    type: 'photo',
+                    preview: preview
+                });
+
+                updateMediaGallery();
+                showToast('Photo captured! Take more or submit report.', 'success', 2000);
+            }, 'image/jpeg', 0.92);
+        }
+
+        function startRecording() {
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm; codecs=vp8' });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                if (recordedChunks.length === 0) {
+                    alert('❌ No video data recorded. Please try again.');
+                    return;
+                }
+
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const now = new Date();
+                const filename = `video_${now.toISOString().replace(/[:.]/g,'-')}.webm`;
+                const preview = URL.createObjectURL(blob);
+
+                capturedMedia.push({
+                    blob: blob,
+                    filename: filename,
+                    type: 'video',
+                    preview: preview
+                });
+
+                updateMediaGallery();
+                showToast('Video recorded! Capture more or submit report.', 'success', 2000);
+
+                document.getElementById('start-record-btn').style.display = 'inline-block';
+                document.getElementById('stop-record-btn').style.display = 'none';
+            };
+
+            mediaRecorder.start();
+            document.getElementById('start-record-btn').style.display = 'none';
+            document.getElementById('stop-record-btn').style.display = 'inline-block';
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
         }
 
         async function submitReport() {
             const text = document.getElementById('report-text').value.trim();
-            if (!text) {
-                alert('Please enter report text');
+
+            if (!text && capturedMedia.length === 0) {
+                alert('Please enter text or capture media');
                 return;
+            }
+
+            // Show loading indicator
+            const submitBtn = document.querySelector('#report-modal .big-btn.primary');
+            const originalText = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) {
+                submitBtn.textContent = '⏳ Uploading...';
+                submitBtn.disabled = true;
+            }
+
+            // Upload media to Drive if exists
+            let uploadedFiles = [];
+            let mediaStoredLocally = false;
+            let reportsFolderId = null;
+
+            if (capturedMedia.length > 0 && window.gapi && accessToken) {
+                console.log('📤 Manager: Uploading', capturedMedia.length, 'media files to Drive');
+
+                // Get task drive folder (same pattern as Worker)
+                const folderId = await getTaskDriveFolder();
+                reportsFolderId = folderId;
+
+                if (folderId) {
+                    // Upload text as .txt file if exists
+                    if (text) {
+                        try {
+                            const now = new Date();
+                            const textFilename = `report_${now.toISOString().replace(/[:.]/g,'-')}.txt`;
+                            const reportContent = `Project Management System - Manager Report
+Generated: ${now.toLocaleString()}
+Manager: ${currentUser.name}
+Project: ${selectedProject ? selectedProject.name : 'N/A'}
+Task: ${currentTask ? currentTask.name : 'General'}
+
+═══════════════════════════════════════
+REPORT:
+═══════════════════════════════════════
+
+${text}
+
+═══════════════════════════════════════
+End of Report
+`;
+                            const textBlob = new Blob([reportContent], { type: 'text/plain' });
+                            const uploadResult = await uploadToGoogleDrive(textBlob, textFilename, folderId);
+
+                            if (uploadResult && uploadResult.id) {
+                                uploadedFiles.push({
+                                    filename: textFilename,
+                                    driveFileId: uploadResult.id,
+                                    type: 'text'
+                                });
+                                console.log('✅ Text report uploaded!');
+                            }
+                        } catch (error) {
+                            console.error('❌ Text upload failed:', error);
+                            mediaStoredLocally = true;
+                        }
+                    }
+
+                    // Upload each media file
+                    for (let i = 0; i < capturedMedia.length; i++) {
+                        const media = capturedMedia[i];
+                        try {
+                            const uploadResult = await uploadToGoogleDrive(media.blob, media.filename, folderId);
+
+                            if (uploadResult && uploadResult.id) {
+                                uploadedFiles.push({
+                                    filename: media.filename,
+                                    driveFileId: uploadResult.id,
+                                    type: media.type
+                                });
+                                console.log(`✅ File ${i+1}/${capturedMedia.length} uploaded`);
+                            }
+                        } catch (error) {
+                            console.error(`❌ Upload failed for file ${i+1}:`, error);
+                            mediaStoredLocally = true;
+                        }
+                    }
+
+                    if (uploadedFiles.length > 0) {
+                        showToast(`${uploadedFiles.length} file(s) uploaded to Drive!`, 'success');
+                    }
+                }
             }
 
             const report = {
@@ -2215,8 +2547,12 @@
                 taskId: currentTask ? currentTask.wbs : null,
                 taskName: currentTask ? currentTask.name : null,
                 text: text,
+                mediaFiles: uploadedFiles,
+                mediaCount: capturedMedia.length,
+                uploadedCount: uploadedFiles.length,
+                mediaStoredLocally: mediaStoredLocally,
+                reportsFolderId: reportsFolderId,
                 timestamp: new Date().toISOString(),
-                type: 'text', // Manager submits text reports (no photos)
                 source: 'manager'
             };
 
@@ -2234,17 +2570,88 @@
                 // Fallback to localStorage
                 if (!hubState.reports) hubState.reports = [];
                 hubState.reports.push(report);
-                logActivity('REPORT', text, {
+                logActivity('REPORT', text || 'Media report', {
                     projectId: report.projectId,
                     projectName: report.projectName,
                     taskId: report.taskId,
-                    taskName: report.taskName
+                    taskName: report.taskName,
+                    mediaCount: capturedMedia.length
                 });
                 await saveHubState();
                 showToast('Report submitted!', 'success');
             }
 
+            // Reset button state
+            if (submitBtn) {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+
             closeReportModal();
+        }
+
+        async function uploadToGoogleDrive(blob, filename, folderId) {
+            if (!accessToken) {
+                console.error('No access token for Drive upload');
+                return null;
+            }
+
+            const metadata = {
+                name: filename,
+                parents: folderId ? [folderId] : []
+            };
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', blob);
+
+            try {
+                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: form
+                });
+
+                return await response.json();
+            } catch (error) {
+                console.error('Upload error:', error);
+                return null;
+            }
+        }
+
+        async function getTaskDriveFolder() {
+            if (!currentTask && !selectedProject) {
+                console.warn('No task or project selected');
+                return null;
+            }
+
+            loadHubState();
+
+            const projectId = currentTask ? currentTask.projectId : selectedProject.id;
+            const project = hubState.projects?.find(p => p.id == projectId);
+
+            if (!project) {
+                console.error('Project not found');
+                return null;
+            }
+
+            if (currentTask) {
+                const area = project.areas?.find(a => a.id == currentTask.areaId);
+                if (area && area.tasks) {
+                    const task = area.tasks.find(t => t.wbs == currentTask.wbs);
+                    if (task && task.reportsFolderId) {
+                        return task.reportsFolderId;
+                    }
+                    if (area.driveFolderId) {
+                        return area.driveFolderId;
+                    }
+                }
+            }
+
+            // Fallback to project folder
+            return project.driveFolderId || null;
         }
 
         async function clockOut() {

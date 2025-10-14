@@ -5714,6 +5714,8 @@
                 return;
             }
 
+            console.log('🔍 Hub addArea() - currentProject:', state.currentProject);
+
             if (!state.currentProject) {
                 showAlert('No project selected', 'error');
                 return;
@@ -5724,32 +5726,90 @@
             }
 
             const area = {
-                id: Date.now(),
+                id: Date.now().toString(),
                 name: name,
                 description: document.getElementById('areaDescription').value,
                 billable: document.getElementById('areaBillable').checked,
                 rate: parseFloat(document.getElementById('areaRate').value) || null,
-                tasks: []
+                tasks: [],
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser?.name || 'Hub User'
             };
 
             state.currentProject.areas.push(area);
             state.currentArea = area;
-            
+
             // Create folder in Drive AREAS folder if connected
             if (state.connected && state.currentProject.driveFolderId) {
                 await createAreaFolder(area);
             }
-            
+
+            // 🔥 REAL-TIME: Write area creation directly to Firebase
+            if (window.firebaseEnabled && window.db && window.firestore) {
+                console.log('🔥 Hub: Creating area in Firebase - Manager & Worker will see this instantly!');
+                try {
+                    const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                    const docSnap = await window.firestore.getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        const hubState = docSnap.data();
+                        const projectIndex = hubState.projects.findIndex(p => p.id == state.currentProject.id);
+
+                        if (projectIndex !== -1) {
+                            hubState.projects[projectIndex] = state.currentProject;
+
+                            await window.firestore.setDoc(docRef, {
+                                ...hubState,
+                                lastModified: new Date().toISOString(),
+                                lastSyncedBy: currentUser?.name || 'Hub User'
+                            });
+
+                            // Log activity to Firebase
+                            if (!hubState.activityLog) hubState.activityLog = [];
+                            hubState.activityLog.push({
+                                id: Date.now().toString(),
+                                type: 'AREA_CREATED',
+                                message: `Hub created area: ${name} in ${state.currentProject.name}`,
+                                timestamp: new Date().toISOString(),
+                                userId: currentUser?.id || 'hub',
+                                userName: currentUser?.name || 'Hub User',
+                                data: {
+                                    projectId: state.currentProject.id,
+                                    projectName: state.currentProject.name,
+                                    areaId: area.id,
+                                    areaName: name,
+                                    billable: area.billable
+                                },
+                                source: 'hub'
+                            });
+
+                            await window.firestore.setDoc(docRef, {
+                                ...hubState,
+                                lastModified: new Date().toISOString(),
+                                lastSyncedBy: currentUser?.name || 'Hub User'
+                            });
+
+                            console.log('✅ Hub: Area synced to Firebase in real-time!');
+                            showAlert(`Area "${name}" created and synced across all apps!`, 'success');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Firebase write failed:', error);
+                    showAlert(`Area "${name}" created locally - will sync when connection restored`, 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                saveState();
+                logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
+                showAlert(`Area "${name}" created!`, 'success');
+            }
+
             document.getElementById('areaName').value = '';
-            saveState();
-            logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
             closeModal('areaModal');
-            
+
             // Update only tabs and content
             document.getElementById('areaTabs').innerHTML = renderAreaTabs();
             document.getElementById('areaContent').innerHTML = renderAreaContent();
-            
-            showAlert(`Area "${name}" created!`, 'success');
         }
 
         async function createAreaFolder(area) {
