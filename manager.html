@@ -1189,6 +1189,18 @@
                     </div>
                     <div class="management-title">Activity Log</div>
                 </div>
+
+                <div class="management-card" onclick="openEventModal()">
+                    <div class="management-icon">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <div class="management-title">Create Event</div>
+                </div>
             </div>
 
             <!-- Project Selector for Management -->
@@ -1464,6 +1476,52 @@
 
             <button class="big-btn success" onclick="updateUser()">
                 ✅ Update User
+            </button>
+        </div>
+    </div>
+
+    <!-- Calendar Event Modal -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create Calendar Event</h3>
+                <button class="close-btn" onclick="closeModal('event-modal')">×</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Event Title</label>
+                <input type="text" id="event-title" placeholder="Enter event title">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" id="event-date">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Time</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="time" id="event-start-time" value="09:00">
+                    <span>to</span>
+                    <input type="time" id="event-end-time" value="10:00">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Attendees (Hold Ctrl/Cmd to select multiple)</label>
+                <select id="event-attendees" multiple style="height: 120px; padding: 4px;">
+                    <optgroup label="Our Team" id="event-our-team"></optgroup>
+                    <optgroup label="Client Team" id="event-client-team"></optgroup>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="event-description" placeholder="Optional event description" rows="3"></textarea>
+            </div>
+
+            <button class="big-btn success" onclick="createCalendarEvent()">
+                📅 Create Event & Send Invites
             </button>
         </div>
     </div>
@@ -1871,19 +1929,34 @@
             selectedProject = hubState.projects.find(p => p.id == projectId);
             clockedInTime = new Date();
 
-            if (!hubState.timeEntries) hubState.timeEntries = [];
-            hubState.timeEntries.push({
+            const timeEntry = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
                 projectId: projectId,
                 type: 'in',
                 timestamp: clockedInTime.toISOString()
-            });
+            };
 
-            logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+            // 🔥 REAL-TIME: Write directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Manager: Writing clock-in to Firebase in real-time');
+                const success = await firebaseOps.addTimeEntry(timeEntry);
+                if (success) {
+                    await firebaseOps.logActivity('CLOCK_IN', `Manager clocked in to ${selectedProject.name}`);
+                    console.log('✅ Manager: Clock-in synced to Firebase - Hub & Worker will see this instantly!');
+                    showToast('Clocked in successfully - synced across all apps', 'success');
+                } else {
+                    showToast('Clock-in saved locally - will sync when connection is restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.timeEntries) hubState.timeEntries = [];
+                hubState.timeEntries.push(timeEntry);
+                logActivity('CLOCK_IN', `Clocked in to ${selectedProject.name}`);
+                await saveHubState();
+            }
 
-            await saveHubState();
             showTaskSelection();
             document.getElementById('clock-out-fixed-btn').style.display = 'block';
         }
@@ -2131,51 +2204,114 @@
                 return;
             }
 
-            if (!hubState.reports) hubState.reports = [];
-
-            hubState.reports.push({
+            const report = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
-                projectId: currentTask ? currentTask.projectId : null,
+                projectId: currentTask ? currentTask.projectId : selectedProject?.id,
+                projectName: currentTask ? currentTask.projectName : selectedProject?.name,
                 areaId: currentTask ? currentTask.areaId : null,
+                areaName: currentTask ? currentTask.areaName : null,
                 taskId: currentTask ? currentTask.wbs : null,
+                taskName: currentTask ? currentTask.name : null,
                 text: text,
-                timestamp: new Date().toISOString()
-            });
+                timestamp: new Date().toISOString(),
+                type: 'text', // Manager submits text reports (no photos)
+                source: 'manager'
+            };
 
-            logActivity('REPORT', text);
-            await saveHubState();
+            // 🔥 REAL-TIME: Write report directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Manager: Submitting report to Firebase - Hub & Worker will see this instantly!');
+                const success = await firebaseOps.addPhotoReport(report);
+                if (success) {
+                    console.log('✅ Manager: Report synced to Firebase in real-time!');
+                    showToast('Report submitted - synced across all apps!', 'success');
+                } else {
+                    showToast('Report saved locally - will sync when connection restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.reports) hubState.reports = [];
+                hubState.reports.push(report);
+                logActivity('REPORT', text, {
+                    projectId: report.projectId,
+                    projectName: report.projectName,
+                    taskId: report.taskId,
+                    taskName: report.taskName
+                });
+                await saveHubState();
+                showToast('Report submitted!', 'success');
+            }
+
             closeReportModal();
-            showToast('Report submitted!', 'success');
         }
 
         async function clockOut() {
-            if (!hubState.timeEntries) hubState.timeEntries = [];
+            const clockOutTime = new Date();
+            const hoursWorked = clockedInTime ? (clockOutTime - clockedInTime) / (1000 * 60 * 60) : 0;
+            const hoursWorkedFormatted = Math.round(hoursWorked * 10) / 10;
 
-            hubState.timeEntries.push({
+            // Calculate daily summary
+            const today = new Date().toISOString().split('T')[0];
+            const todayActivities = (hubState.activityLog || []).filter(a =>
+                a.userId === currentUser.id &&
+                a.timestamp?.startsWith(today)
+            );
+
+            const tasksCompletedToday = todayActivities.filter(a => a.type === 'TASK_COMPLETE' || a.type === 'TASK_COMPLETE_DETAILED').length;
+            const reportsSubmittedToday = todayActivities.filter(a => a.type === 'REPORT').length;
+
+            const timeEntry = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
                 projectId: selectedProject.id,
                 type: 'out',
-                timestamp: new Date().toISOString()
-            });
+                timestamp: clockOutTime.toISOString()
+            };
 
-            logActivity('CLOCK_OUT', `Clocked out from ${selectedProject.name}`);
+            // 🔥 REAL-TIME: Write clock-out directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Manager: Writing clock-out to Firebase in real-time');
+                const success = await firebaseOps.addTimeEntry(timeEntry);
+                if (success) {
+                    await firebaseOps.logActivity('CLOCK_OUT',
+                        `Manager clocked out from ${selectedProject.name} (${hoursWorkedFormatted}h worked, ${tasksCompletedToday} tasks completed)`,
+                        {
+                            projectId: selectedProject.id,
+                            projectName: selectedProject.name,
+                            hoursWorked: hoursWorkedFormatted,
+                            tasksCompleted: tasksCompletedToday,
+                            reportsSubmitted: reportsSubmittedToday
+                        }
+                    );
+                    console.log('✅ Manager: Clock-out synced to Firebase');
+                    showToast(`Clocked out - ${hoursWorkedFormatted}h worked today!`, 'success');
+                } else {
+                    showToast('Clock-out saved locally - will sync when connection restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.timeEntries) hubState.timeEntries = [];
+                hubState.timeEntries.push(timeEntry);
+                logActivity('CLOCK_OUT', `Clocked out from ${selectedProject.name}`);
+                await saveHubState();
+            }
 
-            await saveHubState();
-
+            // Reset state
             selectedProject = null;
             currentTask = null;
             clockedInTime = null;
 
+            // Return to clock-in screen
             document.getElementById('task-selection-screen').classList.add('hidden');
             document.getElementById('active-task-screen').classList.add('hidden');
-            document.getElementById('clock-in-screen').classList.remove('hidden');
             document.getElementById('clock-out-fixed-btn').style.display = 'none';
+            document.getElementById('clock-in-screen').classList.remove('hidden');
 
-            showToast('Clocked out successfully!', 'success');
+            // Refresh project list
+            loadProjects();
         }
 
         // ===== MANAGEMENT MODE FUNCTIONS =====
@@ -2257,17 +2393,60 @@
                 name: name,
                 billable: billable,
                 tasks: [],
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser.name
             };
 
             managementProject.areas.push(newArea);
 
-            logActivity('AREA_CREATED', `Created area: ${name}`);
-            await saveHubState('projects');
+            // 🔥 REAL-TIME: Write area creation directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Manager: Creating area in Firebase - Hub & Worker will see this instantly!');
+                // Update project with new area
+                const stateUpdate = await firebaseOps.getHubState();
+                if (stateUpdate && stateUpdate.projects) {
+                    const projectIndex = stateUpdate.projects.findIndex(p => p.id === managementProject.id);
+                    if (projectIndex !== -1) {
+                        stateUpdate.projects[projectIndex] = managementProject;
+
+                        // Write back to Firebase
+                        try {
+                            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                            await window.firestore.setDoc(docRef, {
+                                ...stateUpdate,
+                                lastModified: new Date().toISOString(),
+                                lastSyncedBy: currentUser.name
+                            });
+
+                            // Log activity
+                            await firebaseOps.logActivity('AREA_CREATED',
+                                `Manager created area: ${name} in ${managementProject.name}`,
+                                {
+                                    projectId: managementProject.id,
+                                    projectName: managementProject.name,
+                                    areaId: newArea.id,
+                                    areaName: name,
+                                    billable: billable
+                                }
+                            );
+
+                            console.log('✅ Manager: Area synced to Firebase in real-time!');
+                            showToast('Area added - synced across all apps!', 'success');
+                        } catch (error) {
+                            console.error('❌ Firebase write failed:', error);
+                            showToast('Area saved locally - will sync when connection restored', 'warning');
+                        }
+                    }
+                }
+            } else {
+                // Fallback to localStorage
+                logActivity('AREA_CREATED', `Created area: ${name}`);
+                await saveHubState('projects');
+                showToast('Area added!', 'success');
+            }
 
             closeModal('add-area-modal');
             showManageAreas();
-            showToast('Area added!', 'success');
         }
 
         async function deleteArea(areaId) {
@@ -2395,21 +2574,67 @@
                 status: 'todo',  // Hub uses 'todo', not 'pending'
                 completed: false,
                 children: [],  // Hub expects children array
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser.name
             };
 
             area.tasks.push(newTask);
 
-            logActivity('TASK_CREATED', `Created task: ${name}`, {
-                assignee: assignee,
-                priority: priority,
-                taskName: name
-            });
-            await saveHubState('projects');
+            // 🔥 REAL-TIME: Write task creation directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Manager: Creating task in Firebase - Hub & Worker will see this instantly!');
+                // Update project with new task
+                const stateUpdate = await firebaseOps.getHubState();
+                if (stateUpdate && stateUpdate.projects) {
+                    const projectIndex = stateUpdate.projects.findIndex(p => p.id === managementProject.id);
+                    if (projectIndex !== -1) {
+                        stateUpdate.projects[projectIndex] = managementProject;
+
+                        // Write back to Firebase
+                        try {
+                            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                            await window.firestore.setDoc(docRef, {
+                                ...stateUpdate,
+                                lastModified: new Date().toISOString(),
+                                lastSyncedBy: currentUser.name
+                            });
+
+                            // Log activity
+                            await firebaseOps.logActivity('TASK_CREATED',
+                                `Manager created task: ${name} → ${assignee}`,
+                                {
+                                    projectId: managementProject.id,
+                                    projectName: managementProject.name,
+                                    areaId: area.id,
+                                    areaName: area.name,
+                                    taskWbs: wbs,
+                                    taskName: name,
+                                    assignee: assignee,
+                                    priority: priority
+                                }
+                            );
+
+                            console.log('✅ Manager: Task synced to Firebase in real-time!');
+                            showToast('Task added - synced across all apps!', 'success');
+                        } catch (error) {
+                            console.error('❌ Firebase write failed:', error);
+                            showToast('Task saved locally - will sync when connection restored', 'warning');
+                        }
+                    }
+                }
+            } else {
+                // Fallback to localStorage
+                logActivity('TASK_CREATED', `Created task: ${name}`, {
+                    assignee: assignee,
+                    priority: priority,
+                    taskName: name
+                });
+                await saveHubState('projects');
+                showToast('Task added!', 'success');
+            }
 
             closeModal('add-task-modal');
             showManageTasks();
-            showToast('Task added!', 'success');
         }
 
         async function deleteTask(areaId, taskWbs) {
@@ -3286,12 +3511,25 @@
         }
 
         function renderManagerActivityFeed() {
+            // UNIFIED ACTIVITY SYSTEM: Merge both old 'activities' and new 'activityLog' arrays
             if (!hubState.activities) hubState.activities = [];
+            if (!hubState.activityLog) hubState.activityLog = [];
+
+            // Combine both arrays (Worker/Manager Firebase uses activityLog, Hub uses activities)
+            const allActivities = [
+                ...hubState.activities,
+                ...hubState.activityLog
+            ];
+
+            // Remove duplicates based on ID and timestamp
+            const uniqueActivities = Array.from(
+                new Map(allActivities.map(a => [`${a.id}_${a.timestamp}`, a])).values()
+            );
 
             console.log('📊 Manager Activity Feed: Starting render');
-            console.log('   - Total activities in hubState:', hubState.activities.length);
-            if (hubState.activities.length > 0) {
-                console.log('   - Sample activity:', hubState.activities[0]);
+            console.log(`   - ${hubState.activities.length} from activities + ${hubState.activityLog.length} from activityLog = ${uniqueActivities.length} total`);
+            if (uniqueActivities.length > 0) {
+                console.log('   - Sample activity:', uniqueActivities[0]);
             }
 
             // Populate filter dropdowns
@@ -3306,7 +3544,7 @@
             console.log('   - Filters:', { sourceFilter, typeFilter, userFilter, projectFilter });
 
             // Filter activities
-            let filtered = hubState.activities.filter(activity => {
+            let filtered = uniqueActivities.filter(activity => {
                 if (sourceFilter !== 'all' && (activity.source || 'hub') !== sourceFilter) return false;
                 if (typeFilter !== 'all' && !activity.type.includes(typeFilter)) return false;
                 if (userFilter !== 'all' && activity.userId != userFilter) return false;
@@ -3387,12 +3625,18 @@
         }
 
         function populateManagerActivityFilters() {
+            // Combine both activity arrays for filter population
+            const allActivities = [
+                ...(hubState.activities || []),
+                ...(hubState.activityLog || [])
+            ];
+
             // Populate user filter
             const userFilter = document.getElementById('activity-filter-user');
             if (!userFilter) return;
 
             const users = new Set();
-            (hubState.activities || []).forEach(a => {
+            allActivities.forEach(a => {
                 if (a.userId) users.add(JSON.stringify({ id: a.userId, name: a.userName }));
             });
 
@@ -3416,14 +3660,20 @@
         }
 
         function updateManagerActivityStats(filtered) {
-            const total = (hubState.activities || []).length;
+            // Combine both arrays for stats
+            const allActivities = [
+                ...(hubState.activities || []),
+                ...(hubState.activityLog || [])
+            ];
+
+            const total = allActivities.length;
             const today = filtered.filter(a => {
                 const activityDate = new Date(a.timestamp).toDateString();
                 const todayDate = new Date().toDateString();
                 return activityDate === todayDate;
             }).length;
-            const tasksComplete = (hubState.activities || []).filter(a => a.type === 'TASK_COMPLETE').length;
-            const areasComplete = (hubState.activities || []).filter(a => a.type === 'AREA_COMPLETE').length;
+            const tasksComplete = allActivities.filter(a => a.type === 'TASK_COMPLETE' || a.type === 'TASK_COMPLETE_DETAILED').length;
+            const areasComplete = allActivities.filter(a => a.type === 'AREA_COMPLETE').length;
 
             const totalEl = document.getElementById('activity-total');
             const todayEl = document.getElementById('activity-today');
@@ -3492,6 +3742,138 @@
             if (currentManagementView === 'activity') {
                 renderManagerActivityFeed();
                 showToast('Activity log refreshed', 'success');
+            }
+        }
+
+        // ===== CALENDAR EVENT FUNCTIONS =====
+        function openEventModal() {
+            // Populate attendees from teams
+            const ourTeamOptgroup = document.getElementById('event-our-team');
+            const clientTeamOptgroup = document.getElementById('event-client-team');
+
+            if (ourTeamOptgroup && hubState.ourTeam) {
+                ourTeamOptgroup.innerHTML = '';
+                hubState.ourTeam.forEach(member => {
+                    if (member.email) {
+                        ourTeamOptgroup.innerHTML += `<option value="${member.email}">${member.name}</option>`;
+                    }
+                });
+            }
+
+            if (clientTeamOptgroup && hubState.clientTeam) {
+                clientTeamOptgroup.innerHTML = '';
+                hubState.clientTeam.forEach(member => {
+                    if (member.email) {
+                        clientTeamOptgroup.innerHTML += `<option value="${member.email}">${member.name}</option>`;
+                    }
+                });
+            }
+
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('event-date').value = today;
+
+            openModal('event-modal');
+        }
+
+        async function createCalendarEvent() {
+            const title = document.getElementById('event-title').value.trim();
+            const eventDate = document.getElementById('event-date').value;
+            const startTime = document.getElementById('event-start-time').value;
+            const endTime = document.getElementById('event-end-time').value;
+            const description = document.getElementById('event-description').value.trim();
+
+            // Validation
+            if (!title) {
+                showToast('Please enter event title', 'warning');
+                return;
+            }
+
+            if (!eventDate) {
+                showToast('Please select event date', 'warning');
+                return;
+            }
+
+            if (!startTime || !endTime) {
+                showToast('Please select start and end time', 'warning');
+                return;
+            }
+
+            if (!window.gapi || !window.gapi.client) {
+                showToast('Google Calendar not connected - check Hub settings', 'error');
+                return;
+            }
+
+            try {
+                // Get selected attendees
+                const attendees = Array.from(document.getElementById('event-attendees').selectedOptions)
+                    .map(o => ({ email: o.value }))
+                    .filter(a => a.email);
+
+                const startDateTime = `${eventDate}T${startTime}:00`;
+                const endDateTime = `${eventDate}T${endTime}:00`;
+                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+                console.log('🔥 Manager: Creating calendar event:', {
+                    title,
+                    startDateTime,
+                    endDateTime,
+                    attendees: attendees.length
+                });
+
+                const event = {
+                    summary: title,
+                    description: description || `Event created by Manager: ${currentUser.name}`,
+                    start: {
+                        dateTime: startDateTime,
+                        timeZone: timeZone
+                    },
+                    end: {
+                        dateTime: endDateTime,
+                        timeZone: timeZone
+                    },
+                    attendees: attendees.length > 0 ? attendees : undefined,
+                    reminders: {
+                        useDefault: false,
+                        overrides: [{ method: 'popup', minutes: 30 }]
+                    }
+                };
+
+                const response = await window.gapi.client.calendar.events.insert({
+                    calendarId: 'primary',
+                    resource: event,
+                    sendNotifications: attendees.length > 0
+                });
+
+                console.log('✅ Manager: Calendar event created:', response.result.id);
+
+                // Log activity to Firebase
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('EVENT_CREATED',
+                        `Manager created event: ${title} (${attendees.length} attendees)`,
+                        {
+                            eventId: response.result.id,
+                            title: title,
+                            date: eventDate,
+                            startTime: startTime,
+                            endTime: endTime,
+                            attendeesCount: attendees.length,
+                            htmlLink: response.result.htmlLink
+                        }
+                    );
+                }
+
+                closeModal('event-modal');
+                showToast(`Event created${attendees.length > 0 ? ' and invitations sent' : ''}!`, 'success');
+
+                // Clear form
+                document.getElementById('event-title').value = '';
+                document.getElementById('event-description').value = '';
+                document.getElementById('event-attendees').selectedIndex = -1;
+
+            } catch (error) {
+                console.error('❌ Manager: Error creating event:', error);
+                showToast('Failed to create event: ' + (error.result?.error?.message || error.message), 'error');
             }
         }
 
