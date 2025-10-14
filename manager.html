@@ -2848,12 +2848,19 @@ End of Report
             } else {
                 // Fallback to localStorage
                 logActivity('AREA_CREATED', `Created area: ${name}`);
-                await saveHubState('projects');
                 showToast('Area added!', 'success');
             }
 
+            // ALWAYS save to localStorage as backup (even when Firebase is enabled)
+            await saveHubState('projects');
+
+            // Log activity locally
+            logActivity('AREA_CREATED', `Created area: ${name}`);
+
             closeModal('add-area-modal');
             showManageAreas();
+
+            console.log('✅ Manager: Area added to local state and UI refreshed');
         }
 
         async function deleteArea(areaId) {

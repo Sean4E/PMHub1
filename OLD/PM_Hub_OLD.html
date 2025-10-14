@@ -11,8 +11,8 @@
     <!-- Firebase v10 SDK (Legacy - will be replaced by PM Hub Core) -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, query, where, orderBy, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
         // Firebase configuration from Tool Tracker
         const firebaseConfig = {
             apiKey: "AIzaSyDnwDzHtjFKaWY-VwIMJtomfunkp7t9GFc",
@@ -25,42 +25,15 @@
 
         let app, db;
         window.firebaseEnabled = false;
-        window.firebaseOfflineEnabled = false;
-
+        
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             window.firebaseEnabled = true;
             window.db = db;
-            window.firestore = { collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, query, where, orderBy };
-            console.log('✅ Firebase initialized successfully');
-
-            // Enable offline persistence for multi-tab support
-            // This allows Firebase to queue writes when offline and sync when back online
-            enableMultiTabIndexedDbPersistence(db)
-                .then(() => {
-                    window.firebaseOfflineEnabled = true;
-                    console.log('✅ Firebase offline persistence enabled (multi-tab)');
-                })
-                .catch((err) => {
-                    if (err.code === 'failed-precondition') {
-                        // Multiple tabs open, persistence can only be enabled in one tab at a time
-                        console.warn('⚠️ Firebase persistence: Multiple tabs open, using single-tab mode');
-                        return enableIndexedDbPersistence(db);
-                    } else if (err.code === 'unimplemented') {
-                        // The current browser doesn't support persistence
-                        console.warn('⚠️ Firebase persistence: Not supported in this browser');
-                    } else {
-                        console.error('❌ Firebase persistence error:', err);
-                    }
-                })
-                .then(() => {
-                    if (!window.firebaseOfflineEnabled) {
-                        window.firebaseOfflineEnabled = true;
-                        console.log('✅ Firebase offline persistence enabled (single-tab)');
-                    }
-                });
-
+            window.firestore = { collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, serverTimestamp };
+            console.log('Firebase initialized successfully');
+            
             // Update Firebase status indicator
             setTimeout(() => {
                 const indicator = document.getElementById('firebase-indicator');
@@ -70,17 +43,11 @@
                 }
             }, 100);
         } catch (error) {
-            console.error('❌ Firebase initialization failed:', error);
+            console.error('Firebase initialization failed:', error);
             console.log('Will use local storage only');
         }
     </script>
-
-    <!-- PM Hub Chat Library -->
-    <script src="pm-hub-chat.js"></script>
-
-    <!-- PM Hub Emoji Picker -->
-    <script src="pm-hub-emoji.js"></script>
-
+    
     <style>
         * {
             margin: 0;
@@ -183,7 +150,6 @@
             padding: 4px;
             border-radius: var(--border-radius);
             border: 1px solid var(--glass-border);
-            margin-right: 24px;
         }
 
         .nav-tab {
@@ -335,24 +301,6 @@
         .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
-        }
-
-        .logout-btn {
-            padding: 8px 16px;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--accent-danger);
-            border-radius: 8px;
-            color: var(--accent-danger);
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .logout-btn:hover {
-            background: var(--accent-danger);
-            color: white;
-            transform: translateY(-1px);
         }
 
         .area-tabs {
@@ -1342,67 +1290,6 @@
             font-family: monospace;
         }
 
-        /* Tab Icon Styles */
-        .tab-icon {
-            filter: grayscale(100%);
-            opacity: 0.7;
-            transition: filter 0.2s ease, opacity 0.2s ease;
-        }
-
-        .nav-tab:hover .tab-icon,
-        .nav-tab.active .tab-icon {
-            filter: grayscale(0%);
-            opacity: 1;
-        }
-
-        /* When color icons enabled via setting */
-        body.color-icons .tab-icon {
-            filter: grayscale(0%);
-            opacity: 1;
-        }
-
-        /* Communication Hub Chat Styles */
-        .chat-message {
-            margin-bottom: 16px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-message.own {
-            align-items: flex-end;
-        }
-
-        .chat-message.other {
-            align-items: flex-start;
-        }
-
-        .chat-message-header {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 4px;
-            font-size: 12px;
-            color: var(--text-tertiary);
-        }
-
-        .chat-message-user {
-            font-weight: 600;
-        }
-
-        .chat-message-bubble {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            padding: 10px 14px;
-            border-radius: 12px;
-            max-width: 70%;
-            word-wrap: break-word;
-            color: var(--text-primary);
-        }
-
-        .chat-message.own .chat-message-bubble {
-            background: var(--accent-primary);
-            border-color: var(--accent-primary);
-        }
-
         @media (max-width: 1200px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -1412,205 +1299,6 @@
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             }
         }
-
-        /* Task Chat Styles */
-        #task-chat-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            z-index: 10000;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        #task-chat-modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chat-container {
-            max-width: 600px;
-            width: 100%;
-            background: var(--bg-dark);
-            border-radius: 16px;
-            display: flex;
-            flex-direction: column;
-            max-height: 700px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-
-        .chat-header {
-            padding: 20px;
-            border-bottom: 1px solid var(--glass-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chat-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .chat-subtitle {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
-
-        .chat-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 28px;
-            cursor: pointer;
-            padding: 0;
-            line-height: 1;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-
-        .chat-close:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .chat-message {
-            display: flex;
-            flex-direction: column;
-            max-width: 80%;
-        }
-
-        .chat-message.own {
-            align-self: flex-end;
-        }
-
-        .chat-message.other {
-            align-self: flex-start;
-        }
-
-        .chat-message-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-            font-size: 12px;
-        }
-
-        .chat-message.own .chat-message-header {
-            justify-content: flex-end;
-        }
-
-        .chat-message-user {
-            font-weight: 600;
-            color: var(--accent-primary);
-        }
-
-        .chat-message.own .chat-message-user {
-            color: var(--accent-success);
-        }
-
-        .chat-message-time {
-            color: var(--text-tertiary);
-        }
-
-        .chat-message-bubble {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            word-wrap: break-word;
-        }
-
-        .chat-message.own .chat-message-bubble {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: var(--accent-success);
-        }
-
-        .chat-input-container {
-            padding: 16px 20px;
-            border-top: 1px solid var(--glass-border);
-            display: flex;
-            gap: 12px;
-        }
-
-        .chat-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            color: white;
-            font-size: 14px;
-            font-family: inherit;
-            resize: none;
-            max-height: 100px;
-        }
-
-        .chat-input:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-        }
-
-        .chat-send-btn {
-            background: var(--accent-primary);
-            border: none;
-            color: white;
-            border-radius: 12px;
-            padding: 12px 24px;
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .chat-send-btn:hover {
-            background: #2563eb;
-        }
-
-        .chat-send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .chat-empty {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-
-        .chat-empty-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
-
-        .chat-unread-badge {
-            background: var(--accent-danger);
-            color: white;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-left: 6px;
-        }
     </style>
 </head>
 <body>
@@ -1619,21 +1307,21 @@
             <img id="logoImage" src="" alt="" style="display: none;">
             <h1 id="logoText">PM System Hub Pro</h1>
             <span id="firebase-indicator" class="firebase-indicator" title="Firebase Status"></span>
-            <span id="network-status-indicator" style="margin-left: 8px; font-size: 12px; opacity: 0.8;" title="Network Status">🌐 Online</span>
-            <span id="firebase-sync-indicator" style="display: none; margin-left: 8px; font-size: 12px; opacity: 0.9;" title="Pending Firebase Operations"></span>
             <div id="sync-indicator" style="display: none; margin-left: 12px;"></div>
         </div>
 
         <nav class="nav-tabs">
-            <button class="nav-tab active" onclick="switchSection('projects')"><span class="tab-icon">📁</span> Projects</button>
-            <button class="nav-tab" onclick="switchSection('clients')"><span class="tab-icon">👥</span> Clients</button>
-            <button class="nav-tab" onclick="switchSection('team')"><span class="tab-icon">👷</span> Team</button>
-            <button class="nav-tab" onclick="switchSection('tools')"><span class="tab-icon">🔧</span> Tools</button>
-            <button class="nav-tab" onclick="switchSection('finances')"><span class="tab-icon">💰</span> Finances</button>
-            <button class="nav-tab" onclick="switchSection('activity')"><span class="tab-icon">📊</span> Activity</button>
-            <button class="nav-tab" onclick="switchSection('calendar')"><span class="tab-icon">📅</span> Calendar</button>
-            <button class="nav-tab" onclick="switchSection('modules')"><span class="tab-icon">💬</span> Chat</button>
-            <button class="nav-tab" onclick="switchSection('admin')"><span class="tab-icon">⚙️</span> Admin</button>
+            <button class="nav-tab active" onclick="switchSection('projects')">Projects</button>
+            <button class="nav-tab" onclick="switchSection('clients')">Clients</button>
+            <button class="nav-tab" onclick="switchSection('team')">Team</button>
+            <button class="nav-tab" onclick="switchSection('tools')">Tools</button>
+            <button class="nav-tab" onclick="switchSection('finances')">Finances</button>
+            <button class="nav-tab" onclick="switchSection('activity')">Activity</button>
+            <button class="nav-tab" onclick="switchSection('calendar')">Calendar</button>
+            <button class="nav-tab" onclick="switchSection('modules')">
+                Worker App
+            </button>
+            <button class="nav-tab" onclick="switchSection('admin')">Admin</button>
         </nav>
 
         <div class="connection-status">
@@ -1641,28 +1329,18 @@
                 <div class="status-dot" id="statusDot"></div>
                 <span id="statusText" style="color: var(--text-primary); font-weight: 500;">Offline</span>
             </div>
-            <button class="btn" onclick="openSearchModal()" style="background: var(--glass-bg);" title="Search (Ctrl+K)">
+            <button class="btn" onclick="openSearchModal()" style="margin-left: 12px; background: var(--glass-bg);" title="Search (Ctrl+K)">
                 🔍
             </button>
-            <button class="btn" onclick="toggleNotifications()" style="margin-left: 6px; background: var(--glass-bg); position: relative;" title="Notifications">
+            <button class="btn" onclick="toggleNotifications()" style="margin-left: 8px; background: var(--glass-bg); position: relative;" title="Notifications">
                 🔔
                 <span id="notificationBadge" style="display: none; position: absolute; top: -4px; right: -4px; background: var(--accent-danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center;">0</span>
             </button>
-            <button class="btn btn-primary" onclick="connectServices()" id="connectBtn" style="margin-left: 6px;">
+            <button class="btn btn-primary" onclick="connectServices()" id="connectBtn" style="margin-left: 12px;">
                 Connect Google
-            </button>
-            <button class="logout-btn" onclick="logout()" style="margin-left: 6px; margin-right: 16px;" title="Logout">
-                Logout
             </button>
         </div>
     </header>
-
-    <!-- Drive Account Info Bar -->
-    <div id="driveAccountInfo" style="display: none; background: rgba(59, 130, 246, 0.1); border-bottom: 1px solid rgba(59, 130, 246, 0.3); padding: 8px 20px; font-size: 12px; color: var(--text-secondary); text-align: center;">
-        <span style="margin-right: 6px;">📁</span>
-        <span>Google Drive: </span>
-        <span id="driveAccountEmail" style="color: var(--accent-primary); font-weight: 600;">Loading...</span>
-    </div>
 
     <!-- Notification Center -->
     <div id="notificationCenter" style="display: none; position: fixed; top: 70px; right: 20px; width: 400px; max-height: 600px; background: var(--bg-dark); border-radius: 16px; box-shadow: var(--shadow-xl); z-index: 9999; border: 1px solid var(--glass-border);">
@@ -2070,78 +1748,69 @@
             </div>
         </section>
 
-        <!-- Chat Section -->
+        <!-- Worker App Info Section -->
         <section id="modules-section" class="main-content" style="display: none;">
             <div class="panel glass" style="grid-column: 1 / -1;">
                 <div class="panel-header">
-                    <h3 class="panel-title">💬 Task Chat</h3>
+                    <h3 class="panel-title">Worker Application</h3>
                 </div>
 
                 <div style="padding: 24px;">
-                    <!-- Project/Task Selector -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                        <div>
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Select Project</label>
-                            <select id="comm-project-select" class="input" onchange="loadCommAreas()" style="width: 100%;">
-                                <option value="">-- Choose Project --</option>
-                            </select>
+                    <div style="background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-primary); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 12px;">📱 Mobile-First Worker Interface</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                            Workers use a simple, streamlined interface on their mobile devices. All features are controlled from the hub.
+                        </p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">⏰</div>
+                            <h4 style="margin-bottom: 8px;">Time Clock</h4>
+                            <p style="color: var(--text-secondary); font-size: 14px;">
+                                Workers clock in to projects, track their time, and clock out. All entries appear in the Activity feed.
+                            </p>
                         </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Select Area</label>
-                            <select id="comm-area-select" class="input" onchange="loadCommTasks()" style="width: 100%;" disabled>
-                                <option value="">-- Choose Area --</option>
-                            </select>
+
+                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">📋</div>
+                            <h4 style="margin-bottom: 8px;">Task Management</h4>
+                            <p style="color: var(--text-secondary); font-size: 14px;">
+                                Workers see their assigned tasks, start them, and mark them complete. Actual hours are automatically tracked.
+                            </p>
                         </div>
-                        <div>
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Select Task</label>
-                            <select id="comm-task-select" class="input" onchange="selectCommTask()" style="width: 100%;" disabled>
-                                <option value="">-- Choose Task --</option>
-                            </select>
+
+                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">🔧</div>
+                            <h4 style="margin-bottom: 8px;">Tool Checkout</h4>
+                            <p style="color: var(--text-secondary); font-size: 14px;">
+                                Workers can sign out tools they need and return them. Tool status is updated in real-time.
+                            </p>
+                        </div>
+
+                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px;">
+                            <div style="font-size: 32px; margin-bottom: 12px;">📸</div>
+                            <h4 style="margin-bottom: 8px;">Progress Reports</h4>
+                            <p style="color: var(--text-secondary); font-size: 14px;">
+                                Workers can send text reports and photos throughout the day. All reports are logged to the hub.
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Task Chat Container -->
-                    <div id="comm-chat-container" style="display: none;">
-                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
-                            <h4 id="comm-task-title" style="margin-bottom: 8px;">Task Name</h4>
-                            <div id="comm-task-meta" style="color: var(--text-secondary); font-size: 14px;"></div>
-                        </div>
-
-                        <!-- Chat Messages -->
-                        <div id="comm-chat-messages" style="background: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; min-height: 400px; max-height: 500px; overflow-y: auto; margin-bottom: 16px;">
-                            <div style="text-align: center; color: var(--text-tertiary); padding: 40px;">
-                                <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
-                                <div>No messages yet</div>
-                                <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
-                            </div>
-                        </div>
-
-                        <!-- Message Input -->
-                        <div style="display: flex; gap: 12px;">
-                            <textarea
-                                id="comm-chat-input"
-                                class="input"
-                                placeholder="Type your message..."
-                                rows="2"
-                                style="flex: 1; resize: vertical; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
-                                onkeydown="handleCommChatKeydown(event)"></textarea>
-                            <button class="emoji-btn" onclick="toggleEmojiPicker(event)"
-                                    title="Add emoji"
-                                    style="background: transparent; border: none; font-size: 24px;
-                                           cursor: pointer; padding: 8px; transition: transform 0.2s; height: fit-content;">
-                                😀
-                            </button>
-                            <button class="btn btn-primary" onclick="sendCommChatMessage()" style="height: fit-content;">
-                                ➤ Send
-                            </button>
-                        </div>
+                    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-success); border-radius: 12px; padding: 20px;">
+                        <h4 style="margin-bottom: 12px;">✅ What's Managed from the Hub</h4>
+                        <ul style="color: var(--text-secondary); line-height: 1.8; margin-left: 20px;">
+                            <li><strong>Team Members:</strong> Add workers in the Team tab with 4-digit PINs</li>
+                            <li><strong>Projects & Tasks:</strong> Create projects, areas, and assign tasks to workers</li>
+                            <li><strong>Tools:</strong> Add tools to inventory with QR codes</li>
+                            <li><strong>Clients:</strong> Set up clients with billing rates</li>
+                            <li><strong>Activity Monitoring:</strong> View all worker actions in real-time</li>
+                            <li><strong>Invoicing:</strong> Generate invoices from completed billable work</li>
+                        </ul>
                     </div>
 
-                    <!-- Empty State -->
-                    <div id="comm-empty-state" style="text-align: center; padding: 60px 20px; color: var(--text-tertiary);">
-                        <div style="font-size: 64px; margin-bottom: 20px;">💬</div>
-                        <h3 style="margin-bottom: 12px; color: var(--text-secondary);">Select a Task to Start Chatting</h3>
-                        <p>Choose a project, area, and task above to view and participate in conversations</p>
+                    <div style="margin-top: 24px; padding: 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-warning); border-radius: 12px;">
+                        <strong>📲 Access:</strong> Workers log in at <code>index.html</code> with their 4-digit PIN and are automatically routed to the worker interface.
                     </div>
                 </div>
             </div>
@@ -2192,27 +1861,13 @@
                     <!-- System Management -->
                     <div style="margin-top: 40px; padding: 20px; background: var(--glass-bg); border-radius: var(--border-radius); border: 1px solid var(--glass-border);">
                         <h4 style="margin-bottom: 16px;">🔧 System Management</h4>
-
-                        <!-- Google Drive Status -->
-                        <div style="padding: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <div id="drive-status-indicator-admin" style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-danger);"></div>
-                                    <div>
-                                        <div style="font-weight: 600; color: var(--text-primary);">Google Drive</div>
-                                        <div id="drive-status-text-admin" style="font-size: 12px; color: var(--text-secondary);">Not connected</div>
-                                    </div>
-                                </div>
-                                <div style="font-size: 12px; color: var(--text-tertiary);">
-                                    Connect in header (top right) →
-                                </div>
-                            </div>
-                            <button class="btn" onclick="syncAllProjectFolders()" id="syncDriveBtnAdmin" style="width: 100%; background: var(--accent-primary);">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                            <button class="btn btn-primary" onclick="connectServices()" id="connectBtnAdmin" style="width: 100%;">
+                                🔗 Connect Google
+                            </button>
+                            <button class="btn" onclick="syncAllProjectFolders()" id="syncDriveBtnAdmin" style="display: none; background: var(--accent-warning); width: 100%;">
                                 🔄 Sync Drive Folders
                             </button>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px;">
                             <button class="btn" onclick="showBackupMenu()" style="background: var(--accent-success); width: 100%;">
                                 💾 Backup & Restore
                             </button>
@@ -2345,16 +2000,6 @@
 
                     <div class="settings-group">
                         <h4>Interface Settings</h4>
-                        <div class="form-group">
-                            <label class="form-label">Tab Icon Style</label>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="colorIconsToggle" onchange="toggleIconStyle()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <small style="color: var(--text-tertiary); display: block; margin-top: 8px;">
-                                Off: Monochrome icons (grayscale) • On: Color icons
-                            </small>
-                        </div>
                         <div class="slider-group">
                             <span class="slider-label">Border Radius</span>
                             <input type="range" class="slider" id="borderRadius" min="0" max="20" value="12" onchange="updateStyles()">
@@ -2448,8 +2093,8 @@
             <div class="form-group">
                 <label class="form-label">Access Level</label>
                 <select id="memberAccessLevel">
-                    <option value="Worker">Worker (Worker App)</option>
-                    <option value="Manager">Manager (Manager App)</option>
+                    <option value="User">User (Worker App)</option>
+                    <option value="Manager">Manager (Full Hub)</option>
                     <option value="Admin">Admin (Full Hub)</option>
                 </select>
             </div>
@@ -2589,10 +2234,8 @@
                 <input type="text" id="taskTitle" placeholder="Enter task title">
             </div>
             <div class="form-group">
-                <label class="form-label">Assign to Team Members</label>
-                <div id="taskAssignees" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px; max-height: 200px; overflow-y: auto;">
-                    <!-- Team member checkboxes will be populated here -->
-                </div>
+                <label class="form-label">Assignee</label>
+                <select id="taskAssignee"></select>
             </div>
             <div class="form-group">
                 <label class="form-label">Priority</label>
@@ -2853,37 +2496,6 @@
         </div>
     </div>
 
-    <!-- Task Chat Modal -->
-    <div id="task-chat-modal">
-        <div class="chat-container">
-            <div class="chat-header">
-                <div>
-                    <div class="chat-title" id="chat-task-name">Task Chat</div>
-                    <div class="chat-subtitle" id="chat-task-info"></div>
-                </div>
-                <button class="chat-close" onclick="closeTaskChat()">×</button>
-            </div>
-
-            <div class="chat-messages" id="chat-messages">
-                <div class="chat-empty">
-                    <div class="chat-empty-icon">💬</div>
-                    <div>No messages yet</div>
-                    <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
-                </div>
-            </div>
-
-            <div class="chat-input-container">
-                <textarea
-                    class="chat-input"
-                    id="chat-input"
-                    placeholder="Type your message..."
-                    rows="1"
-                    onkeydown="handleChatKeydown(event)"></textarea>
-                <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         // ============ COMPLETE IMPLEMENTATION ============
         // This includes ALL functionality from 017 plus new module features from 022
@@ -2902,7 +2514,6 @@
         let state = {
             connected: false,
             isOnline: navigator.onLine,
-            currentUser: null,
             currentProject: null,
             currentArea: null,
             collapsedTasks: new Set(),
@@ -2913,10 +2524,8 @@
             tools: [],
             usedProjectNumbers: [],
             currentYear: new Date().getFullYear(),
-            syncQueue: [], // Drive folder sync queue (existing)
-            firebaseSyncQueue: [], // NEW: Firebase operations sync queue
+            syncQueue: [],
             lastSyncTime: null,
-            lastFirebaseSyncTime: null,
             notifications: [],
             unreadNotifications: 0,
             folderTemplate: [
@@ -3070,15 +2679,12 @@
             },
             
             broadcastUpdate: function(type, data) {
-                const channel = new BroadcastChannel('pm_hub_state'); // Use same channel as manager/worker
-                channel.postMessage({
-                    type: 'STATE_UPDATED',
-                    section: 'projects',
-                    source: 'hub',
-                    syncedBy: state.currentUser?.name || 'admin',
-                    timestamp: Date.now() // Use timestamp for consistency
+                const channel = new BroadcastChannel('pm_hub_updates');
+                channel.postMessage({ 
+                    type, 
+                    data, 
+                    timestamp: new Date().toISOString() 
                 });
-                channel.close(); // Close after sending
             },
             
             syncToFirebase: async function(collection, doc, data) {
@@ -3128,30 +2734,6 @@
 
         // Initialize
         window.onload = async function() {
-            // Check user access level
-            const userStr = localStorage.getItem('pm_hub_current_user');
-            if (userStr) {
-                const currentUser = JSON.parse(userStr);
-
-                // Set current user in state for chat and other features
-                state.currentUser = currentUser;
-
-                // Redirect managers to their app
-                if (currentUser.accessLevel === 'Manager') {
-                    window.location.href = 'manager.html';
-                    return;
-                }
-
-                // Redirect workers to their app
-                if (currentUser.accessLevel === 'Worker') {
-                    window.location.href = 'worker.html';
-                    return;
-                }
-            } else {
-                // Default admin user if no user in localStorage
-                state.currentUser = { id: 'admin', name: 'Administrator', accessLevel: 'Admin' };
-            }
-
             await loadState();
 
             // Request notification permissions if not already granted
@@ -3168,7 +2750,6 @@
             }
 
             applySettings();
-            loadIconStyle(); // Load saved icon style preference
             renderProjects();
             renderTeamTables();
             renderTemplateStructure();
@@ -3180,9 +2761,6 @@
 
             // Update Firebase status indicators
             updateFirebaseStatus();
-
-            // Initialize Real-Time Chat System
-            initializeChatSystem();
 
             // Start auto-sync if Firebase is available
             if (window.firebaseEnabled) {
@@ -3223,64 +2801,40 @@
 
         async function loadState() {
             console.log('📂 Loading system state...');
-            console.log('🔥 Firebase enabled:', !!window.firebaseEnabled);
 
-            let finalState = null;
+            // Load from localStorage first
+            const saved = localStorage.getItem('pmSystemState');
+            let localState = null;
 
-            // FIREBASE IS PRIMARY SOURCE OF TRUTH
+            if (saved) {
+                localState = JSON.parse(saved);
+                console.log('✓ Local state loaded from localStorage');
+            }
+
+            // Try to load from Firebase and merge
             if (window.firebaseEnabled) {
-                console.log('☁️ Loading from Firebase (primary source)...');
                 const firebaseState = await loadStateFromFirebase();
-
                 if (firebaseState) {
-                    finalState = firebaseState;
-                    console.log('✅ Using Firebase state (primary)');
-                    console.log('   - Projects:', firebaseState.projects?.length || 0);
-                    console.log('   - Last modified:', firebaseState.lastModified);
-                    console.log('   - Last synced by:', firebaseState.lastSyncedBy);
-
-                    // Save Firebase state to localStorage as cache
-                    localStorage.setItem('pmSystemState', JSON.stringify(firebaseState));
-                    console.log('💾 Firebase state cached to localStorage');
-                } else {
-                    console.log('⚠️ No Firebase data found, trying localStorage as fallback...');
-                    // Fallback to localStorage only if Firebase has no data
-                    const saved = localStorage.getItem('pmSystemState');
-                    if (saved) {
-                        finalState = JSON.parse(saved);
-                        console.log('✓ Using localStorage as fallback');
-                    }
-                }
-            } else {
-                // Firebase not available, use localStorage only
-                console.log('ℹ️ Firebase not enabled, using localStorage only');
-                const saved = localStorage.getItem('pmSystemState');
-                if (saved) {
-                    finalState = JSON.parse(saved);
-                    console.log('✓ Local state loaded from localStorage');
+                    localState = mergeStates(localState || {}, firebaseState);
                 }
             }
 
-            if (finalState) {
-                const savedState = finalState;
+            if (localState) {
+                const savedState = localState;
+
+                // Save IDs of current selections before merging
+                const currentProjectId = savedState.currentProject?.id;
+                const currentAreaId = savedState.currentArea?.id;
 
                 state = { ...state, ...savedState };
-
-                // Restore selections from separate localStorage (survives Firebase state replacements)
-                const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
-                const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
-
-                console.log('🔍 Hub loadState: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
 
                 // Re-link currentProject and currentArea to actual objects in projects array
                 // This is CRITICAL - without this, we're working with stale copies
                 if (currentProjectId) {
                     state.currentProject = state.projects?.find(p => p.id === currentProjectId) || null;
-                    console.log('🎯 Hub loadState: Project restored:', state.currentProject ? state.currentProject.name : 'NOT FOUND');
 
                     if (state.currentProject && currentAreaId) {
                         state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
-                        console.log('🎯 Hub loadState: Area restored:', state.currentArea ? state.currentArea.name : 'NOT FOUND');
                     } else {
                         state.currentArea = null;
                     }
@@ -3305,9 +2859,7 @@
                 if (!state.usedProjectNumbers) state.usedProjectNumbers = [];
                 if (!state.calendarFilters) state.calendarFilters = { type: 'all', project: 'all' };
                 if (!state.syncQueue) state.syncQueue = [];
-                if (!state.firebaseSyncQueue) state.firebaseSyncQueue = [];
                 if (!state.lastSyncTime) state.lastSyncTime = null;
-                if (!state.lastFirebaseSyncTime) state.lastFirebaseSyncTime = null;
                 if (!state.taskPresets) state.taskPresets = [];
                 if (!state.notifications) state.notifications = [];
                 if (!state.unreadNotifications) state.unreadNotifications = 0;
@@ -3397,9 +2949,6 @@
                     pin: member.pin || generateDefaultPin(index + 100),
                     moduleAccess: member.moduleAccess || ['reports']
                 }));
-
-                // ✅ MIGRATION: Add parent references to existing tasks
-                migrateTasksWithParentReferences();
             } else {
                 state.ourTeam = defaultOurTeam;
                 state.clientTeam = defaultClientTeam;
@@ -3420,64 +2969,7 @@
             });
         }
 
-        function migrateTasksWithParentReferences() {
-            let migrated = false;
-
-            if (state.projects) {
-                state.projects.forEach(project => {
-                    if (project.areas) {
-                        project.areas.forEach(area => {
-                            if (area.tasks) {
-                                area.tasks.forEach(task => {
-                                    // Add parent references if missing
-                                    if (!task.projectId) {
-                                        task.projectId = project.id;
-                                        migrated = true;
-                                    }
-                                    if (!task.areaId) {
-                                        task.areaId = area.id;
-                                        migrated = true;
-                                    }
-
-                                    // Recursively handle subtasks
-                                    if (task.children && task.children.length > 0) {
-                                        migrated = migrateChildTasks(task.children, project.id, area.id) || migrated;
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-
-            if (migrated) {
-                console.log('✓ Migrated tasks with parent references');
-                saveState('migration');
-                return true;
-            }
-            return false;
-        }
-
-        function migrateChildTasks(children, projectId, areaId) {
-            let migrated = false;
-            children.forEach(child => {
-                if (!child.projectId) {
-                    child.projectId = projectId;
-                    migrated = true;
-                }
-                if (!child.areaId) {
-                    child.areaId = areaId;
-                    migrated = true;
-                }
-
-                if (child.children && child.children.length > 0) {
-                    migrated = migrateChildTasks(child.children, projectId, areaId) || migrated;
-                }
-            });
-            return migrated;
-        }
-
-        async function saveState(section = 'general') {
+        function saveState(section = 'general') {
             // Assign WBS to all tasks in all areas before saving
             if (state.projects) {
                 state.projects.forEach(project => {
@@ -3495,23 +2987,14 @@
             state.lastModified = new Date().toISOString();
 
             // Convert Set to Array for storage
-            // IMPORTANT: Do NOT save currentProject/currentArea - those are UI state only
+            // IMPORTANT: Only save IDs for currentProject/currentArea to avoid circular references
             const stateToSave = {
                 ...state,
                 collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
-                currentProject: null, // UI state - not saved
-                currentArea: null     // UI state - not saved
+                currentProject: state.currentProject ? { id: state.currentProject.id } : null,
+                currentArea: state.currentArea ? { id: state.currentArea.id } : null
             };
             localStorage.setItem('pmSystemState', JSON.stringify(stateToSave));
-
-            // Sync to Firebase (debounced to avoid excessive writes)
-            // Clear any pending sync and schedule a new one
-            if (window.firebaseEnabled) {
-                clearTimeout(window.firebaseSyncTimeout);
-                window.firebaseSyncTimeout = setTimeout(async () => {
-                    await syncStateToFirebase();
-                }, 1000); // 1 second debounce
-            }
 
             // Broadcast update to modules
             window.PMHub.broadcastUpdate('STATE_UPDATED', {
@@ -3524,6 +3007,14 @@
             // Broadcast to other tabs/windows for instant sync
             if (typeof broadcastStateChange === 'function') {
                 broadcastStateChange(section);
+            }
+
+            // Sync to Firebase if enabled (debounced - waits 2 seconds for batch updates)
+            if (window.firebaseEnabled) {
+                clearTimeout(window.firebaseSyncTimeout);
+                window.firebaseSyncTimeout = setTimeout(() => {
+                    syncStateToFirebase();
+                }, 2000);
             }
         }
 
@@ -3623,286 +3114,6 @@
 
             if (state.syncQueue.length === 0) {
                 showAlert('All offline changes synced to Drive!', 'success');
-            }
-        }
-
-        // ===== FIREBASE SYNC QUEUE SYSTEM =====
-        // This handles Firebase operations that fail due to network issues
-        // Firebase offline persistence handles most cases, but this is a safety net
-
-        function queueFirebaseOperation(operation, data) {
-            const queueItem = {
-                id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
-                operation: operation,
-                data: data,
-                timestamp: new Date().toISOString(),
-                retries: 0,
-                maxRetries: 5,
-                status: 'pending'
-            };
-
-            state.firebaseSyncQueue.push(queueItem);
-            console.log(`📋 Queued Firebase operation: ${operation}`, queueItem.id);
-
-            // Save queue to localStorage
-            localStorage.setItem('pm_hub_firebase_queue', JSON.stringify(state.firebaseSyncQueue));
-
-            updateFirebaseSyncIndicator();
-
-            return queueItem.id;
-        }
-
-        async function processFirebaseSyncQueue() {
-            if (!window.firebaseEnabled || state.firebaseSyncQueue.length === 0) {
-                return;
-            }
-
-            console.log(`🔄 Processing ${state.firebaseSyncQueue.length} Firebase operations...`);
-
-            const itemsToProcess = [...state.firebaseSyncQueue];
-
-            for (let item of itemsToProcess) {
-                try {
-                    console.log(`🔄 Processing: ${item.operation}`, item.id);
-
-                    switch (item.operation) {
-                        case 'WRITE_HUB_STATE':
-                            await executeFirebaseWrite(item.data);
-                            break;
-                        case 'ADD_AREA':
-                            await executeAddArea(item.data);
-                            break;
-                        case 'ADD_TASK':
-                            await executeAddTask(item.data);
-                            break;
-                        case 'UPDATE_TASK':
-                            await executeUpdateTask(item.data);
-                            break;
-                        case 'LOG_ACTIVITY':
-                            await executeLogActivity(item.data);
-                            break;
-                        default:
-                            console.warn('Unknown Firebase operation:', item.operation);
-                    }
-
-                    // Remove successfully synced item
-                    state.firebaseSyncQueue = state.firebaseSyncQueue.filter(q => q.id !== item.id);
-                    console.log(`✅ Firebase operation completed: ${item.operation}`, item.id);
-
-                } catch (error) {
-                    console.error(`❌ Firebase operation failed: ${item.operation}`, error);
-                    item.retries = (item.retries || 0) + 1;
-                    item.lastError = error.message;
-
-                    // Remove after max retries
-                    if (item.retries >= item.maxRetries) {
-                        console.error(`Removing from queue after ${item.maxRetries} failed attempts:`, item);
-                        state.firebaseSyncQueue = state.firebaseSyncQueue.filter(q => q.id !== item.id);
-                        showAlert(`Failed to sync ${item.operation} after ${item.maxRetries} attempts`, 'error');
-                    }
-                }
-
-                // Save queue state after each operation
-                localStorage.setItem('pm_hub_firebase_queue', JSON.stringify(state.firebaseSyncQueue));
-            }
-
-            state.lastFirebaseSyncTime = new Date().toISOString();
-            updateFirebaseSyncIndicator();
-
-            if (state.firebaseSyncQueue.length === 0) {
-                console.log('✅ All Firebase operations synced successfully');
-                showAlert('All pending operations synced!', 'success');
-            }
-        }
-
-        // Execute queued Firebase operations
-        async function executeFirebaseWrite(data) {
-            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-            await window.firestore.setDoc(docRef, data);
-        }
-
-        async function executeAddArea(data) {
-            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-            const docSnap = await window.firestore.getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const hubState = docSnap.data();
-                const projectIndex = hubState.projects.findIndex(p => p.id === data.projectId);
-
-                if (projectIndex !== -1) {
-                    if (!hubState.projects[projectIndex].areas) {
-                        hubState.projects[projectIndex].areas = [];
-                    }
-                    hubState.projects[projectIndex].areas.push(data.area);
-
-                    await window.firestore.setDoc(docRef, {
-                        ...hubState,
-                        lastModified: new Date().toISOString(),
-                        lastSyncedBy: data.userId || 'system'
-                    });
-                }
-            }
-        }
-
-        async function executeAddTask(data) {
-            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-            const docSnap = await window.firestore.getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const hubState = docSnap.data();
-                const project = hubState.projects.find(p => p.id === data.projectId);
-
-                if (project) {
-                    const area = project.areas?.find(a => a.id === data.areaId);
-                    if (area) {
-                        if (!area.tasks) area.tasks = [];
-                        area.tasks.push(data.task);
-
-                        await window.firestore.setDoc(docRef, {
-                            ...hubState,
-                            lastModified: new Date().toISOString(),
-                            lastSyncedBy: data.userId || 'system'
-                        });
-                    }
-                }
-            }
-        }
-
-        async function executeUpdateTask(data) {
-            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-            const docSnap = await window.firestore.getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const hubState = docSnap.data();
-                const project = hubState.projects.find(p => p.id === data.projectId);
-
-                if (project) {
-                    const area = project.areas?.find(a => a.id === data.areaId);
-                    if (area && area.tasks) {
-                        const taskIndex = area.tasks.findIndex(t => t.wbs === data.taskWbs);
-                        if (taskIndex !== -1) {
-                            area.tasks[taskIndex] = { ...area.tasks[taskIndex], ...data.updates };
-
-                            await window.firestore.setDoc(docRef, {
-                                ...hubState,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: data.userId || 'system'
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        async function executeLogActivity(data) {
-            const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-            const docSnap = await window.firestore.getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const hubState = docSnap.data();
-                if (!hubState.activityLog) hubState.activityLog = [];
-                hubState.activityLog.push(data.activity);
-
-                await window.firestore.setDoc(docRef, {
-                    ...hubState,
-                    lastModified: new Date().toISOString()
-                });
-            }
-        }
-
-        // Load Firebase queue from localStorage on startup
-        function loadFirebaseSyncQueue() {
-            try {
-                const saved = localStorage.getItem('pm_hub_firebase_queue');
-                if (saved) {
-                    state.firebaseSyncQueue = JSON.parse(saved);
-                    console.log(`📋 Loaded ${state.firebaseSyncQueue.length} pending Firebase operations from storage`);
-                    if (state.firebaseSyncQueue.length > 0) {
-                        updateFirebaseSyncIndicator();
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading Firebase sync queue:', error);
-                state.firebaseSyncQueue = [];
-            }
-        }
-
-        // ===== NETWORK STATUS MONITORING =====
-        function setupNetworkMonitoring() {
-            console.log('🌐 Setting up network monitoring...');
-
-            // Initial status
-            updateNetworkStatus();
-
-            // Listen for online/offline events
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-
-            // Periodic check (every 30 seconds)
-            setInterval(checkNetworkStatus, 30000);
-        }
-
-        function handleOnline() {
-            console.log('🌐 Network connection restored');
-            state.isOnline = true;
-            updateNetworkStatus();
-
-            showAlert('Back online! Syncing pending changes...', 'success');
-
-            // Process both Drive and Firebase queues
-            setTimeout(() => {
-                processSyncQueue(); // Drive folder queue
-                processFirebaseSyncQueue(); // Firebase operations queue
-            }, 1000);
-        }
-
-        function handleOffline() {
-            console.log('🌐 Network connection lost');
-            state.isOnline = false;
-            updateNetworkStatus();
-
-            showAlert('Working offline. Changes will sync when connection restored.', 'warning');
-        }
-
-        async function checkNetworkStatus() {
-            const wasOnline = state.isOnline;
-            state.isOnline = navigator.onLine;
-
-            // If status changed, trigger appropriate handler
-            if (state.isOnline !== wasOnline) {
-                if (state.isOnline) {
-                    handleOnline();
-                } else {
-                    handleOffline();
-                }
-            }
-        }
-
-        function updateNetworkStatus() {
-            const indicator = document.getElementById('network-status-indicator');
-            if (indicator) {
-                if (state.isOnline) {
-                    indicator.innerHTML = '🌐 Online';
-                    indicator.style.color = 'var(--accent-success)';
-                } else {
-                    indicator.innerHTML = '📡 Offline';
-                    indicator.style.color = 'var(--accent-warning)';
-                }
-            }
-        }
-
-        function updateFirebaseSyncIndicator() {
-            const indicator = document.getElementById('firebase-sync-indicator');
-            if (indicator) {
-                const pendingCount = state.firebaseSyncQueue.length;
-
-                if (pendingCount > 0) {
-                    indicator.innerHTML = `📋 ${pendingCount} pending operation${pendingCount > 1 ? 's' : ''}`;
-                    indicator.style.display = 'block';
-                    indicator.style.color = 'var(--accent-warning)';
-                } else {
-                    indicator.style.display = 'none';
-                }
             }
         }
 
@@ -4076,9 +3287,7 @@
                 client_id: CLIENT_ID,
                 scope: SCOPES,
                 callback: '',
-                prompt: '', // Empty prompt for silent refresh
-                ux_mode: 'redirect', // Use redirect instead of popup for GitHub Pages
-                redirect_uri: window.location.origin + window.location.pathname
+                prompt: '' // Empty prompt for silent refresh
             });
             gisInited = true;
             console.log('✓ GIS (Token Client) initialized');
@@ -4278,22 +3487,12 @@
                             document.getElementById('statusText').textContent = 'Connected';
                             document.getElementById('connectBtn').textContent = 'Disconnect';
                             document.getElementById('connectBtn').onclick = disconnect;
-
-                            const syncDriveBtn = document.getElementById('syncDriveBtn');
-                            if (syncDriveBtn) {
-                                syncDriveBtn.style.display = 'inline-block';
-                            }
+                            document.getElementById('syncDriveBtn').style.display = 'inline-block';
 
                             // Load Google services
                             console.log('📂 Loading Drive folders and Calendar events...');
                             checkMainFolder().catch(err => console.error('Drive folder check failed:', err));
                             loadUpcomingEvents().catch(err => console.error('Calendar load failed:', err));
-
-                            // Get and display Google account info
-                            updateDriveAccountInfo().catch(err => console.error('Failed to get account info:', err));
-
-                            // Update admin Drive status
-                            updateAdminDriveStatus(true);
 
                             // Schedule token refresh (assume 1 hour expiry if not specified)
                             scheduleTokenRefresh(3600);
@@ -4357,17 +3556,20 @@
                         document.getElementById('connectBtn').textContent = 'Disconnect';
                         document.getElementById('connectBtn').onclick = disconnect;
 
-                        // Update admin Drive status
-                        updateAdminDriveStatus(true);
+                        // Update admin buttons
+                        if (document.getElementById('connectBtnAdmin')) {
+                            document.getElementById('connectBtnAdmin').textContent = '✓ Disconnect';
+                            document.getElementById('connectBtnAdmin').onclick = disconnect;
+                        }
+                        if (document.getElementById('syncDriveBtnAdmin')) {
+                            document.getElementById('syncDriveBtnAdmin').style.display = 'block';
+                        }
 
                         showAlert('Connected to Google services!', 'success');
 
                         console.log('📂 Initializing Drive and Calendar...');
                         await checkMainFolder();
                         loadUpcomingEvents();
-
-                        // Get and display Google account info
-                        await updateDriveAccountInfo();
 
                         // Schedule token refresh
                         const expiresIn = resp.expires_in || 3600;
@@ -4389,44 +3591,6 @@
             }
         }
 
-        async function updateDriveAccountInfo() {
-            try {
-                // Get user info from Google Drive API
-                const response = await gapi.client.drive.about.get({
-                    fields: 'user(emailAddress,displayName)'
-                });
-
-                if (response.result && response.result.user) {
-                    const email = response.result.user.emailAddress;
-                    const displayName = response.result.user.displayName;
-
-                    console.log('✓ Google Drive account:', email);
-
-                    // Update UI
-                    const accountInfo = document.getElementById('driveAccountInfo');
-                    const accountEmail = document.getElementById('driveAccountEmail');
-
-                    if (accountInfo && accountEmail) {
-                        accountEmail.textContent = email;
-                        accountEmail.title = displayName || email;
-                        accountInfo.style.display = 'block';
-                    }
-
-                    // Store in state for reference
-                    state.driveAccount = {
-                        email: email,
-                        displayName: displayName
-                    };
-
-                    // Save to localStorage
-                    localStorage.setItem('drive_account_email', email);
-                }
-            } catch (error) {
-                console.error('❌ Could not fetch Google account info:', error);
-                // Non-critical error, just log it
-            }
-        }
-
         function disconnect() {
             const token = gapi.client.getToken();
             if (token) {
@@ -4439,16 +3603,14 @@
                 document.getElementById('connectBtn').textContent = 'Connect Google';
                 document.getElementById('connectBtn').onclick = connectServices;
 
-                // Hide Drive account info
-                const accountInfo = document.getElementById('driveAccountInfo');
-                if (accountInfo) accountInfo.style.display = 'none';
-
-                // Update admin Drive status
-                updateAdminDriveStatus(false);
-
-                // Clear stored account info
-                localStorage.removeItem('drive_account_email');
-                delete state.driveAccount;
+                // Update admin buttons
+                if (document.getElementById('connectBtnAdmin')) {
+                    document.getElementById('connectBtnAdmin').textContent = '🔗 Connect Google';
+                    document.getElementById('connectBtnAdmin').onclick = connectServices;
+                }
+                if (document.getElementById('syncDriveBtnAdmin')) {
+                    document.getElementById('syncDriveBtnAdmin').style.display = 'none';
+                }
 
                 // Clear token refresh timers
                 if (tokenExpiryTimer) clearTimeout(tokenExpiryTimer);
@@ -4457,51 +3619,9 @@
             }
         }
 
-        function updateAdminDriveStatus(connected) {
-            const indicator = document.getElementById('drive-status-indicator-admin');
-            const statusText = document.getElementById('drive-status-text-admin');
-            const syncBtn = document.getElementById('syncDriveBtnAdmin');
-
-            if (connected) {
-                if (indicator) {
-                    indicator.style.background = 'var(--accent-success)';
-                }
-                if (statusText) {
-                    const email = state.driveAccount?.email || 'Connected';
-                    statusText.textContent = `Connected: ${email}`;
-                    statusText.style.color = 'var(--accent-success)';
-                }
-                if (syncBtn) {
-                    syncBtn.disabled = false;
-                    syncBtn.style.opacity = '1';
-                    syncBtn.style.cursor = 'pointer';
-                }
-            } else {
-                if (indicator) {
-                    indicator.style.background = 'var(--accent-danger)';
-                }
-                if (statusText) {
-                    statusText.textContent = 'Not connected - Connect in header (top right)';
-                    statusText.style.color = 'var(--text-secondary)';
-                }
-                if (syncBtn) {
-                    syncBtn.disabled = true;
-                    syncBtn.style.opacity = '0.5';
-                    syncBtn.style.cursor = 'not-allowed';
-                }
-            }
-        }
-
         async function syncAllProjectFolders() {
-            // Check if actually connected by verifying token
-            const token = gapi.client.getToken();
-            if (!token || !token.access_token) {
-                showAlert('⚠️ Please connect to Google Drive first (top right button)', 'warning');
-                return;
-            }
-
-            if (!state.isOnline) {
-                showAlert('⚠️ No internet connection', 'warning');
+            if (!state.connected || !state.isOnline) {
+                showAlert('⚠️ Connect to Drive first', 'warning');
                 return;
             }
 
@@ -4751,7 +3871,6 @@
         }
 
         function selectProject(id) {
-            console.log('🎯 Hub: Selecting project:', id);
             state.currentProject = state.projects.find(p => p.id === id);
             state.currentArea = null;
 
@@ -4759,17 +3878,8 @@
                 state.currentArea = state.currentProject.areas[0];
             }
 
-            // Store selection separately in LOCAL storage only (UI state, not shared data)
-            localStorage.setItem('pm_hub_current_project_id', id);
-            if (state.currentArea) {
-                localStorage.setItem('pm_hub_current_area_id', state.currentArea.id);
-            } else {
-                localStorage.removeItem('pm_hub_current_area_id');
-            }
-            console.log('✅ Hub: Selection stored locally - Project:', id, 'Area:', state.currentArea?.id);
-
-            // DO NOT call saveState() here - selection is UI state, not shared data
-            // saveState() writes to Firebase and triggers listeners, causing selection loss
+            // Save the selection so it persists across refreshes
+            saveState();
 
             renderProjects();
             renderProjectDetails();
@@ -4838,16 +3948,9 @@
         }
 
         function selectArea(areaId) {
-            console.log('🎯 Hub: Selecting area:', areaId);
             state.currentArea = state.currentProject.areas.find(a => a.id === areaId);
-
-            // Store area selection in LOCAL storage only (UI state, not shared data)
-            localStorage.setItem('pm_hub_current_area_id', areaId);
-            console.log('✅ Hub: Area selection stored locally:', areaId);
-
-            // DO NOT call saveState() here - selection is UI state, not shared data
-            // saveState() writes to Firebase and triggers listeners, causing selection loss
-
+            saveState();
+            
             // Update only the tabs and content, not the whole project details
             document.getElementById('areaTabs').innerHTML = renderAreaTabs();
             document.getElementById('areaContent').innerHTML = renderAreaContent();
@@ -5359,27 +4462,12 @@
             document.getElementById('taskPriority').value = task.priority || 'medium';
             document.getElementById('taskDescription').value = task.description || '';
             
-            // Populate assignees with checkboxes
-            const assigneesContainer = document.getElementById('taskAssignees');
-            const allTeam = [...state.ourTeam, ...state.clientTeam];
-
-            // Convert old single assignee to array format if needed
-            if (task.assignee && typeof task.assignee === 'string' && !task.assignees) {
-                // Handle comma-separated assignees (e.g., "John, Sarah")
-                task.assignees = task.assignee.split(',').map(a => a.trim());
-            }
-            const taskAssignees = task.assignees || [];
-
-            if (allTeam.length === 0) {
-                assigneesContainer.innerHTML = '<p style="color: var(--text-tertiary); font-size: 13px; margin: 0;">No team members available. Add team members in the Team tab.</p>';
-            } else {
-                assigneesContainer.innerHTML = allTeam.map(m => `
-                    <div class="checkbox-group" style="margin-bottom: 8px;">
-                        <input type="checkbox" id="assignee-${m.id}" value="${m.name}" ${taskAssignees.includes(m.name) ? 'checked' : ''}>
-                        <label for="assignee-${m.id}" style="font-size: 14px;">${m.name} <span style="color: var(--text-secondary);">(${m.email})</span></label>
-                    </div>
-                `).join('');
-            }
+            // Populate assignee
+            const select = document.getElementById('taskAssignee');
+            select.innerHTML = '<option value="">Unassigned</option>';
+            [...state.ourTeam, ...state.clientTeam].forEach(m => {
+                select.innerHTML += `<option value="${m.name}" ${task.assignee === m.name ? 'selected' : ''}>${m.name} (${m.email})</option>`;
+            });
             
             // Populate attendees for calendar event with optgroups
             const attendeesSelect = document.getElementById('taskEventAttendees');
@@ -5458,172 +4546,6 @@
             }
         }
 
-        // ===== TASK CHAT FUNCTIONS =====
-        let currentChatTask = null; // Store task being chatted about
-        let currentChatUser = null; // Store current user info
-
-        function openTaskChat(wbs, event) {
-            if (event) {
-                event.stopPropagation();
-            }
-
-            const task = getTaskByWbs(wbs);
-            if (!task) return;
-
-            // Store current chat task
-            currentChatTask = { wbs, task };
-
-            // Get current user from localStorage
-            const userStr = localStorage.getItem('pm_hub_current_user');
-            if (userStr) {
-                currentChatUser = JSON.parse(userStr);
-            } else {
-                currentChatUser = { id: 'admin', name: 'Administrator' };
-            }
-
-            // Initialize conversation if it doesn't exist
-            if (!task.conversation) {
-                task.conversation = {
-                    messages: [],
-                    participants: [currentChatUser.name]
-                };
-            } else if (!task.conversation.participants.includes(currentChatUser.name)) {
-                task.conversation.participants.push(currentChatUser.name);
-            }
-
-            // Update chat header
-            document.getElementById('chat-task-name').textContent = task.name;
-            document.getElementById('chat-task-info').textContent = `${state.currentArea.name} • ${state.currentProject.name}`;
-
-            // Render messages
-            renderChatMessages();
-
-            // Mark all messages as read
-            markChatMessagesRead();
-
-            // Show modal
-            document.getElementById('task-chat-modal').classList.add('active');
-
-            // Focus input
-            setTimeout(() => {
-                document.getElementById('chat-input').focus();
-            }, 100);
-        }
-
-        function closeTaskChat() {
-            document.getElementById('task-chat-modal').classList.remove('active');
-            currentChatTask = null;
-        }
-
-        function renderChatMessages() {
-            if (!currentChatTask) return;
-
-            const task = currentChatTask.task;
-            const messagesContainer = document.getElementById('chat-messages');
-
-            if (!task.conversation || task.conversation.messages.length === 0) {
-                messagesContainer.innerHTML = `
-                    <div class="chat-empty">
-                        <div class="chat-empty-icon">💬</div>
-                        <div>No messages yet</div>
-                        <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '';
-            task.conversation.messages.forEach(msg => {
-                const isOwn = msg.userName === currentChatUser.name;
-                const time = new Date(msg.timestamp).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                });
-
-                html += `
-                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
-                        <div class="chat-message-header">
-                            <span class="chat-message-user">${msg.userName}</span>
-                            <span class="chat-message-time">${time}</span>
-                        </div>
-                        <div class="chat-message-bubble">
-                            ${msg.text}
-                        </div>
-                    </div>
-                `;
-            });
-
-            messagesContainer.innerHTML = html;
-
-            // Scroll to bottom
-            setTimeout(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 0);
-        }
-
-        async function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-
-            if (!text || !currentChatTask) return;
-
-            const task = currentChatTask.task;
-
-            // Create message
-            const message = {
-                id: Date.now().toString(),
-                userId: currentChatUser.id,
-                userName: currentChatUser.name,
-                text: text,
-                timestamp: new Date().toISOString(),
-                readBy: [currentChatUser.id]
-            };
-
-            // Add to conversation
-            task.conversation.messages.push(message);
-
-            // Clear input
-            input.value = '';
-            input.style.height = 'auto';
-
-            // Render messages
-            renderChatMessages();
-
-            // Save state and sync
-            await saveStateToFirebase();
-
-            // Log activity
-            logActivity('Chat Message', `${currentChatUser.name} commented on "${task.name}"`);
-        }
-
-        function markChatMessagesRead() {
-            if (!currentChatTask || !currentChatUser) return;
-
-            const task = currentChatTask.task;
-            if (!task.conversation) return;
-
-            task.conversation.messages.forEach(msg => {
-                if (!msg.readBy.includes(currentChatUser.id)) {
-                    msg.readBy.push(currentChatUser.id);
-                }
-            });
-
-            saveStateToFirebase();
-        }
-
-        function handleChatKeydown(event) {
-            // Send on Enter (without Shift)
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendChatMessage();
-            }
-
-            // Auto-resize textarea
-            const textarea = event.target;
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
-        }
-
         async function saveTask() {
             const wbs = document.getElementById('editTaskWbs').value;
             const title = document.getElementById('taskTitle').value;
@@ -5643,34 +4565,26 @@
                 let task;
                 let isNewTask = !wbs;
                 let oldAssignee = null;
-                let activityId = null; // Define at function scope
 
             if (wbs) {
                 // Edit existing task
                 task = getTaskByWbs(wbs);
                 if (task) {
-                    oldAssignee = task.assignee || (task.assignees ? task.assignees.join(', ') : '');
-
-                    // Collect selected assignees from checkboxes
-                    const assigneesContainer = document.getElementById('taskAssignees');
-                    const checkedBoxes = assigneesContainer.querySelectorAll('input[type="checkbox"]:checked');
-                    const newAssignees = Array.from(checkedBoxes).map(cb => cb.value);
+                    oldAssignee = task.assignee;
+                    const newAssignee = document.getElementById('taskAssignee').value;
 
                     task.name = title;
-                    task.assignees = newAssignees;
-                    // Keep single assignee for backward compatibility display
-                    task.assignee = newAssignees.length > 0 ? newAssignees.join(', ') : '';
+                    task.assignee = newAssignee;
                     task.priority = document.getElementById('taskPriority').value;
                     task.description = document.getElementById('taskDescription').value;
 
                     logActivity('Task Updated', `Updated task "${title}" (${wbs})`);
 
-                    // Notify if assignees changed
-                    const newAssigneeStr = newAssignees.join(', ');
-                    if (oldAssignee !== newAssigneeStr && newAssignees.length > 0) {
+                    // Notify if assignee changed
+                    if (oldAssignee !== newAssignee && newAssignee) {
                         createNotification(
-                            'Task Assigned',
-                            `"${title}" assigned to ${newAssigneeStr}`,
+                            'Task Reassigned',
+                            `"${title}" has been assigned to ${newAssignee}`,
                             'task_assigned',
                             {
                                 taskId: task.id,
@@ -5703,46 +4617,40 @@
                     state.currentArea.tasks = [];
                 }
 
-                // Collect selected assignees from checkboxes
-                const assigneesContainer = document.getElementById('taskAssignees');
-                const checkedBoxes = assigneesContainer.querySelectorAll('input[type="checkbox"]:checked');
-                const assignees = Array.from(checkedBoxes).map(cb => cb.value);
+                const assignee = document.getElementById('taskAssignee').value;
 
                 task = {
                     id: Date.now(),
                     name: title,
-                    assignees: assignees,
-                    assignee: assignees.length > 0 ? assignees.join(', ') : '',
+                    assignee: assignee,
                     priority: document.getElementById('taskPriority').value,
                     description: document.getElementById('taskDescription').value,
                     status: 'todo',
-                    children: [],
-                    projectId: state.currentProject.id,  // ✅ Parent reference
-                    areaId: state.currentArea.id         // ✅ Parent reference
+                    children: []
                 };
 
                 state.currentArea.tasks.push(task);
 
                 // Log activity (will update with folder ID later if created)
-                activityId = Date.now().toString();
+                const activityId = Date.now().toString();
                 logActivity('Task Added', `Added task "${title}" via Add Task form`, {
                     taskId: task.id,
                     taskWbs: task.wbs,
                     taskName: title
                 }, activityId);
 
-                // Notify if task has assignees
-                if (assignees && assignees.length > 0) {
+                // Notify if task has assignee
+                if (assignee) {
                     createNotification(
                         'New Task Assigned',
-                        `"${title}" assigned to ${assignees.join(', ')} in ${state.currentArea.name} (${state.currentProject.code})`,
+                        `"${title}" in ${state.currentArea.name} (${state.currentProject.code})`,
                         'task_assigned',
                         {
                             taskId: task.id,
                             taskName: title,
                             projectCode: state.currentProject.code,
                             areaName: state.currentArea.name,
-                            assignees: assignees
+                            assignee: assignee
                         }
                     );
                 }
@@ -5793,9 +4701,7 @@
                 document.getElementById('editTaskWbs').value = '';
                 document.getElementById('taskTitle').value = '';
                 document.getElementById('taskDescription').value = '';
-                // Clear all assignee checkboxes
-                const assigneeCheckboxes = document.querySelectorAll('#taskAssignees input[type="checkbox"]');
-                assigneeCheckboxes.forEach(cb => cb.checked = false);
+                document.getElementById('taskAssignee').value = '';
                 document.getElementById('taskPriority').value = 'medium';
                 document.getElementById('createCalendarEvent').checked = false;
                 document.getElementById('sendEmailNotification').checked = false;
@@ -6046,8 +4952,6 @@
                 return;
             }
 
-            console.log('🔍 Hub addArea() - currentProject:', state.currentProject);
-
             if (!state.currentProject) {
                 showAlert('No project selected', 'error');
                 return;
@@ -6058,118 +4962,32 @@
             }
 
             const area = {
-                id: Date.now().toString(),
+                id: Date.now(),
                 name: name,
                 description: document.getElementById('areaDescription').value,
                 billable: document.getElementById('areaBillable').checked,
                 rate: parseFloat(document.getElementById('areaRate').value) || null,
-                tasks: [],
-                createdAt: new Date().toISOString(),
-                createdBy: state.currentUser?.name || 'Hub User'
+                tasks: []
             };
 
             state.currentProject.areas.push(area);
             state.currentArea = area;
-
-            console.log('✅ Area added to state:', {
-                projectId: state.currentProject.id,
-                projectName: state.currentProject.name,
-                areaId: area.id,
-                areaName: area.name,
-                totalAreas: state.currentProject.areas.length
-            });
-
+            
             // Create folder in Drive AREAS folder if connected
             if (state.connected && state.currentProject.driveFolderId) {
                 await createAreaFolder(area);
             }
-
-            // 🔥 REAL-TIME: Write area creation directly to Firebase
-            if (window.firebaseEnabled && window.db && window.firestore) {
-                console.log('🔥 Hub: Creating area in Firebase - Manager & Worker will see this instantly!');
-                try {
-                    const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                    const docSnap = await window.firestore.getDoc(docRef);
-
-                    if (docSnap.exists()) {
-                        const hubState = docSnap.data();
-                        const projectIndex = hubState.projects.findIndex(p => p.id == state.currentProject.id);
-
-                        if (projectIndex !== -1) {
-                            // Update project with new area
-                            hubState.projects[projectIndex] = state.currentProject;
-
-                            // Log activity to Firebase
-                            if (!hubState.activityLog) hubState.activityLog = [];
-                            hubState.activityLog.push({
-                                id: Date.now().toString(),
-                                type: 'AREA_CREATED',
-                                message: `Hub created area: ${name} in ${state.currentProject.name}`,
-                                timestamp: new Date().toISOString(),
-                                userId: state.currentUser?.id || 'hub',
-                                userName: state.currentUser?.name || 'Hub User',
-                                data: {
-                                    projectId: state.currentProject.id,
-                                    projectName: state.currentProject.name,
-                                    areaId: area.id,
-                                    areaName: name,
-                                    billable: area.billable
-                                },
-                                source: 'hub'
-                            });
-
-                            // Single write to Firebase with both project update and activity
-                            await window.firestore.setDoc(docRef, {
-                                ...hubState,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: state.currentUser?.name || 'Hub User'
-                            });
-
-                            console.log('✅ Hub: Area synced to Firebase in real-time!');
-                            showAlert(`Area "${name}" created and synced across all apps!`, 'success');
-                        }
-                    }
-                } catch (error) {
-                    console.error('❌ Firebase write failed:', error);
-
-                    // Queue the operation for retry
-                    queueFirebaseOperation('ADD_AREA', {
-                        projectId: state.currentProject.id,
-                        area: area,
-                        userId: state.currentUser?.name || 'Hub User'
-                    });
-
-                    showAlert(`Area "${name}" created locally - queued for sync when connection restored`, 'warning');
-                }
-            } else {
-                // Fallback to localStorage
-                saveState();
-                logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
-                showAlert(`Area "${name}" created!`, 'success');
-            }
-
-            // Save to localStorage as backup (even when Firebase is enabled)
-            saveState();
-
-            // Log activity locally
-            logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
-
-            // Clear form
+            
             document.getElementById('areaName').value = '';
+            saveState();
+            logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
             closeModal('areaModal');
-
-            // Verify state before rendering
-            console.log('🔍 About to render - Current state:', {
-                currentProjectId: state.currentProject?.id,
-                currentProjectName: state.currentProject?.name,
-                areasCount: state.currentProject?.areas?.length,
-                areas: state.currentProject?.areas?.map(a => ({ id: a.id, name: a.name }))
-            });
-
-            // Refresh the full project details view to show new area
-            renderProjectDetails();
-
-            console.log('✅ Area added to UI - renderProjectDetails() called');
+            
+            // Update only tabs and content
+            document.getElementById('areaTabs').innerHTML = renderAreaTabs();
+            document.getElementById('areaContent').innerHTML = renderAreaContent();
+            
+            showAlert(`Area "${name}" created!`, 'success');
         }
 
         async function createAreaFolder(area) {
@@ -7482,21 +6300,6 @@
                                     }
                                     renderActivityFeed();
 
-                                    // Refresh communication hub chat if open
-                                    if (currentCommTask) {
-                                        const project = state.projects.find(p => p.id == currentCommTask.projectId);
-                                        if (project) {
-                                            const area = project.areas?.find(a => a.id == currentCommTask.areaId);
-                                            if (area) {
-                                                const task = area.tasks?.find(t => t.wbs == currentCommTask.taskWbs);
-                                                if (task) {
-                                                    currentCommTask.task = task;
-                                                    renderCommMessages();
-                                                }
-                                            }
-                                        }
-                                    }
-
                                     console.log('✓ Firestore: State synced and UI refreshed');
                                 }
                             }
@@ -7902,13 +6705,6 @@
             }
         }
 
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('pm_hub_current_user');
-                window.location.href = 'index.html';
-            }
-        }
-
         function renderNotifications() {
             const container = document.getElementById('notificationList');
 
@@ -8036,27 +6832,29 @@
             });
             document.getElementById(`filter-${filter}`).classList.add('active');
 
-            // Show all items in this category (or all categories if 'all')
-            // Then user can narrow down by typing
+            // Re-run search with current query
             const query = document.getElementById('globalSearch').value;
-            performGlobalSearch(query || ''); // Pass empty string to show all
+            if (query) {
+                performGlobalSearch(query);
+            }
         }
 
         function performGlobalSearch(query) {
-            const trimmedQuery = query?.trim().toLowerCase() || '';
-            const showAll = trimmedQuery === ''; // Show all if no query
-            const maxResults = 50; // Limit to 50 results for performance
+            if (!query || query.trim().length < 2) {
+                searchResults = [];
+                renderSearchResults();
+                return;
+            }
+
+            query = query.toLowerCase().trim();
             searchResults = [];
 
             // Search Projects
             if (searchFilter === 'all' || searchFilter === 'projects') {
                 state.projects?.forEach(project => {
-                    if (searchResults.length >= maxResults) return;
-
-                    if (showAll ||
-                        project.code.toLowerCase().includes(trimmedQuery) ||
-                        project.name.toLowerCase().includes(trimmedQuery) ||
-                        project.description?.toLowerCase().includes(trimmedQuery)) {
+                    if (project.code.toLowerCase().includes(query) ||
+                        project.name.toLowerCase().includes(query) ||
+                        project.description?.toLowerCase().includes(query)) {
                         searchResults.push({
                             type: 'project',
                             icon: '📁',
@@ -8077,12 +6875,9 @@
                 state.projects?.forEach(project => {
                     project.areas?.forEach(area => {
                         area.tasks?.forEach(task => {
-                            if (searchResults.length >= maxResults) return;
-
-                            if (showAll ||
-                                task.name.toLowerCase().includes(trimmedQuery) ||
-                                task.description?.toLowerCase().includes(trimmedQuery) ||
-                                task.wbs?.toLowerCase().includes(trimmedQuery)) {
+                            if (task.name.toLowerCase().includes(query) ||
+                                task.description?.toLowerCase().includes(query) ||
+                                task.wbs?.toLowerCase().includes(query)) {
                                 searchResults.push({
                                     type: 'task',
                                     icon: task.completed ? '✅' : '📋',
@@ -8105,12 +6900,9 @@
             // Search Clients
             if (searchFilter === 'all' || searchFilter === 'clients') {
                 state.clients?.forEach(client => {
-                    if (searchResults.length >= maxResults) return;
-
-                    if (showAll ||
-                        client.name.toLowerCase().includes(trimmedQuery) ||
-                        client.email?.toLowerCase().includes(trimmedQuery) ||
-                        client.company?.toLowerCase().includes(trimmedQuery)) {
+                    if (client.name.toLowerCase().includes(query) ||
+                        client.email?.toLowerCase().includes(query) ||
+                        client.company?.toLowerCase().includes(query)) {
                         searchResults.push({
                             type: 'client',
                             icon: '👤',
@@ -8128,12 +6920,9 @@
             // Search Team Members
             if (searchFilter === 'all' || searchFilter === 'team') {
                 state.ourTeam?.forEach(member => {
-                    if (searchResults.length >= maxResults) return;
-
-                    if (showAll ||
-                        member.name.toLowerCase().includes(trimmedQuery) ||
-                        member.role?.toLowerCase().includes(trimmedQuery) ||
-                        member.email?.toLowerCase().includes(trimmedQuery)) {
+                    if (member.name.toLowerCase().includes(query) ||
+                        member.role?.toLowerCase().includes(query) ||
+                        member.email?.toLowerCase().includes(query)) {
                         searchResults.push({
                             type: 'team',
                             icon: '👷',
@@ -8157,9 +6946,7 @@
 
             if (searchResults.length === 0) {
                 const query = document.getElementById('globalSearch').value;
-                const filterName = searchFilter === 'all' ? 'any category' : searchFilter;
-
-                if (query && query.trim().length > 0) {
+                if (query && query.trim().length >= 2) {
                     container.innerHTML = `
                         <div style="text-align: center; padding: 60px 20px; color: var(--text-tertiary);">
                             <div style="font-size: 64px; margin-bottom: 16px;">🔍</div>
@@ -8168,12 +6955,11 @@
                         </div>
                     `;
                 } else {
-                    // Show hint about clicking category to see all
                     container.innerHTML = `
                         <div style="text-align: center; padding: 60px 20px; color: var(--text-tertiary);">
                             <div style="font-size: 64px; margin-bottom: 16px;">🔍</div>
                             <div style="font-size: 18px; margin-bottom: 8px;">Search PM Hub</div>
-                            <div style="font-size: 14px; margin-bottom: 16px;">Start typing to search, or click a category to see all items</div>
+                            <div style="font-size: 14px;">Find projects, tasks, clients, or team members</div>
                             <div style="margin-top: 16px; font-size: 13px; color: var(--text-secondary);">
                                 <kbd>↑</kbd> <kbd>↓</kbd> Navigate &nbsp;•&nbsp; <kbd>Enter</kbd> Select &nbsp;•&nbsp; <kbd>Esc</kbd> Close
                             </div>
@@ -8182,10 +6968,6 @@
                 }
                 return;
             }
-
-            const query = document.getElementById('globalSearch').value.trim();
-            const resultCount = searchResults.length;
-            const showingAll = !query;
 
             container.innerHTML = searchResults.map((result, index) => {
                 const typeColors = {
@@ -8212,12 +6994,7 @@
                         </div>
                     </div>
                 `;
-            }).join('') + `
-                <div style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 13px; border-top: 1px solid var(--glass-border); margin-top: 8px;">
-                    ${showingAll ? `Showing all ${resultCount} ${searchFilter === 'all' ? 'items' : searchFilter}` : `Found ${resultCount} result${resultCount !== 1 ? 's' : ''}`}
-                    ${resultCount >= 50 ? ' (limited to first 50)' : ''}
-                </div>
-            `;
+            }).join('');
         }
 
         function handleSearchKeydown(e) {
@@ -8672,34 +7449,6 @@
             saveState();
         }
 
-        function toggleIconStyle() {
-            const toggle = document.getElementById('colorIconsToggle');
-            const isColorIcons = toggle.checked;
-
-            if (isColorIcons) {
-                document.body.classList.add('color-icons');
-                localStorage.setItem('pm_hub_icon_style', 'color');
-                console.log('✅ Switched to color icons');
-            } else {
-                document.body.classList.remove('color-icons');
-                localStorage.setItem('pm_hub_icon_style', 'monochrome');
-                console.log('✅ Switched to monochrome icons');
-            }
-        }
-
-        function loadIconStyle() {
-            const savedStyle = localStorage.getItem('pm_hub_icon_style');
-            const toggle = document.getElementById('colorIconsToggle');
-
-            if (savedStyle === 'color') {
-                document.body.classList.add('color-icons');
-                if (toggle) toggle.checked = true;
-            } else {
-                document.body.classList.remove('color-icons');
-                if (toggle) toggle.checked = false;
-            }
-        }
-
         function saveSettings() {
             saveState();
             showAlert('Settings saved!', 'success');
@@ -8753,24 +7502,12 @@
 
         // UI Functions
         function switchSection(section) {
-            // Stop chat polling when leaving Chat tab
-            if (window.hubChatPollInterval) {
-                clearInterval(window.hubChatPollInterval);
-                window.hubChatPollInterval = null;
-                console.log('💬 Hub: Stopped chat polling');
-            }
-
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
             document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
             document.getElementById(`${section}-section`).style.display = 'grid';
 
-            // Handle section-specific initialization
-            if (section === 'modules') {
-                // Chat tab: Load projects and start polling
-                loadCommProjects();
-                startHubChatPolling();
-            } else if (section === 'calendar') {
+            if (section === 'calendar') {
                 // Populate project filter dropdown
                 const projectFilterEl = document.getElementById('projectFilter');
                 if (projectFilterEl) {
@@ -8785,6 +7522,8 @@
                 }
             } else if (section === 'admin') {
                 updateDashboard();
+            } else if (section === 'modules') {
+                renderModules();
             } else if (section === 'activity') {
                 renderActivityFeed();
             }
@@ -8816,21 +7555,13 @@
             
             document.getElementById('taskModalTitle').textContent = 'Add Task';
             document.getElementById('editTaskWbs').value = '';
-
-            // Populate assignees with checkboxes
-            const assigneesContainer = document.getElementById('taskAssignees');
-            const allTeam = [...state.ourTeam, ...state.clientTeam];
-
-            if (allTeam.length === 0) {
-                assigneesContainer.innerHTML = '<p style="color: var(--text-tertiary); font-size: 13px; margin: 0;">No team members available. Add team members in the Team tab.</p>';
-            } else {
-                assigneesContainer.innerHTML = allTeam.map(m => `
-                    <div class="checkbox-group" style="margin-bottom: 8px;">
-                        <input type="checkbox" id="assignee-${m.id}" value="${m.name}">
-                        <label for="assignee-${m.id}" style="font-size: 14px;">${m.name} <span style="color: var(--text-secondary);">(${m.email})</span></label>
-                    </div>
-                `).join('');
-            }
+            
+            // Populate assignee dropdown
+            const select = document.getElementById('taskAssignee');
+            select.innerHTML = '<option value="">Unassigned</option>';
+            [...state.ourTeam, ...state.clientTeam].forEach(m => {
+                select.innerHTML += `<option value="${m.name}">${m.name} (${m.email})</option>`;
+            });
             
             // Populate attendees dropdown for calendar event
             const attendeesSelect = document.getElementById('taskEventAttendees');
@@ -9504,375 +8235,11 @@
         }
 
         // ============================================================================
-        // COMMUNICATION HUB FUNCTIONS
-        // ============================================================================
-
-        let currentCommTask = null;
-
-        // Real-Time Chat System
-        let chatSystem = null;
-        let activeChatListener = null;
-        let emojiPicker = null;
-
-        function loadCommProjects() {
-            console.log('📂 Loading communication projects...');
-            const select = document.getElementById('comm-project-select');
-            select.innerHTML = '<option value="">-- Choose Project --</option>';
-
-            if (state.projects && state.projects.length > 0) {
-                console.log('✅ Found', state.projects.length, 'projects');
-                state.projects.forEach(project => {
-                    select.innerHTML += `<option value="${project.id}">${project.code} - ${project.name}</option>`;
-                });
-            } else {
-                console.warn('⚠️ No projects found in state');
-            }
-
-            // Reset dependent selects
-            document.getElementById('comm-area-select').disabled = true;
-            document.getElementById('comm-task-select').disabled = true;
-            document.getElementById('comm-chat-container').style.display = 'none';
-            document.getElementById('comm-empty-state').style.display = 'block';
-        }
-
-        function loadCommAreas() {
-            const projectId = document.getElementById('comm-project-select').value;
-            const areaSelect = document.getElementById('comm-area-select');
-            const taskSelect = document.getElementById('comm-task-select');
-
-            areaSelect.innerHTML = '<option value="">-- Choose Area --</option>';
-            taskSelect.innerHTML = '<option value="">-- Choose Task --</option>';
-            taskSelect.disabled = true;
-
-            if (!projectId) {
-                areaSelect.disabled = true;
-                return;
-            }
-
-            const project = state.projects.find(p => p.id == projectId);
-            if (project && project.areas && project.areas.length > 0) {
-                areaSelect.disabled = false;
-                project.areas.forEach(area => {
-                    areaSelect.innerHTML += `<option value="${area.id}">${area.name}</option>`;
-                });
-            } else {
-                areaSelect.disabled = true;
-            }
-
-            document.getElementById('comm-chat-container').style.display = 'none';
-            document.getElementById('comm-empty-state').style.display = 'block';
-        }
-
-        function loadCommTasks() {
-            const projectId = document.getElementById('comm-project-select').value;
-            const areaId = document.getElementById('comm-area-select').value;
-            const taskSelect = document.getElementById('comm-task-select');
-
-            console.log('📋 Loading tasks for area:', areaId);
-
-            taskSelect.innerHTML = '<option value="">-- Choose Task --</option>';
-
-            if (!projectId || !areaId) {
-                taskSelect.disabled = true;
-                console.log('❌ No project or area selected');
-                return;
-            }
-
-            const project = state.projects.find(p => p.id == projectId);
-            if (project) {
-                const area = project.areas.find(a => a.id == areaId);
-                if (area && area.tasks && area.tasks.length > 0) {
-                    console.log('✅ Found', area.tasks.length, 'tasks in area');
-                    taskSelect.disabled = false;
-                    area.tasks.forEach(task => {
-                        console.log('  - Task:', task.wbs, task.name, 'Completed:', task.completed);
-                        const unreadCount = task.conversation?.messages?.filter(msg =>
-                            !msg.readBy?.includes(state.currentUser?.id)
-                        ).length || 0;
-                        const badge = unreadCount > 0 ? ` (${unreadCount} new)` : '';
-                        taskSelect.innerHTML += `<option value="${task.wbs}">${task.wbs} - ${task.name}${badge}</option>`;
-                    });
-                } else {
-                    console.warn('⚠️ No tasks found in area or area not found');
-                    taskSelect.disabled = true;
-                }
-            } else {
-                console.error('❌ Project not found:', projectId);
-            }
-
-            document.getElementById('comm-chat-container').style.display = 'none';
-            document.getElementById('comm-empty-state').style.display = 'block';
-        }
-
-        async function selectCommTask() {
-            if (!chatSystem) {
-                console.error('💬 Chat system not initialized');
-                showAlert('Chat system not available', 'error');
-                return;
-            }
-
-            const projectId = document.getElementById('comm-project-select').value;
-            const areaId = document.getElementById('comm-area-select').value;
-            const taskWbs = document.getElementById('comm-task-select').value;
-
-            console.log('💬 Selecting task:', { projectId, areaId, taskWbs });
-
-            if (!projectId || !areaId || !taskWbs) {
-                document.getElementById('comm-chat-container').style.display = 'none';
-                document.getElementById('comm-empty-state').style.display = 'block';
-                return;
-            }
-
-            const project = state.projects.find(p => p.id == projectId);
-            if (!project) {
-                console.error('❌ Project not found:', projectId);
-                return;
-            }
-
-            const area = project.areas.find(a => a.id == areaId);
-            if (!area) {
-                console.error('❌ Area not found:', areaId);
-                return;
-            }
-
-            const task = area.tasks.find(t => t.wbs == taskWbs);
-            if (!task) {
-                console.error('❌ Task not found:', taskWbs);
-                return;
-            }
-
-            console.log('✅ Task found:', task.name);
-
-            // Store current task reference
-            currentCommTask = {
-                projectId,
-                areaId,
-                taskWbs,
-                task,
-                projectName: project.name,
-                areaName: area.name
-            };
-
-            // Update UI
-            document.getElementById('comm-task-title').textContent = task.name;
-            document.getElementById('comm-task-meta').textContent = `${task.wbs} • ${area.name} • Assigned to: ${task.assignee || 'Unassigned'}`;
-
-            // Show chat container
-            const chatContainer = document.getElementById('comm-chat-container');
-            const emptyState = document.getElementById('comm-empty-state');
-
-            if (!chatContainer || !emptyState) {
-                console.error('❌ Chat elements not found!', { chatContainer, emptyState });
-                return;
-            }
-
-            chatContainer.style.display = 'block';
-            emptyState.style.display = 'none';
-
-            console.log('🎨 Chat container shown - Starting real-time listener');
-
-            // Initialize chat in Firebase
-            await chatSystem.initializeChat(projectId, areaId, taskWbs, task.name);
-
-            // Stop any existing listener
-            if (activeChatListener) {
-                activeChatListener();
-                activeChatListener = null;
-            }
-
-            // Start real-time listener
-            activeChatListener = chatSystem.listenToMessages(
-                projectId,
-                areaId,
-                taskWbs,
-                (messages) => {
-                    // Render messages in real-time
-                    renderCommMessages(messages);
-
-                    // Mark unread messages as read
-                    const unreadMessageIds = messages
-                        .filter(msg => !msg.readBy?.includes(state.currentUser.id) && msg.userId !== state.currentUser.id)
-                        .map(msg => msg.id);
-
-                    if (unreadMessageIds.length > 0) {
-                        chatSystem.markMessagesAsRead(projectId, areaId, taskWbs, unreadMessageIds);
-                    }
-                }
-            );
-
-            // Focus input
-            setTimeout(() => {
-                const input = document.getElementById('comm-chat-input');
-                if (input) input.focus();
-            }, 100);
-
-            console.log('💬 Hub: Real-time chat opened for task', taskWbs);
-        }
-
-        // Polling functions removed - now using real-time Firebase listeners
-
-        function renderCommMessages(messages = []) {
-            const container = document.getElementById('comm-chat-messages');
-
-            if (!messages || messages.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align: center; color: var(--text-tertiary); padding: 40px;">
-                        <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
-                        <div>No messages yet</div>
-                        <div style="font-size: 13px; margin-top: 8px;">Start a conversation about this task</div>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '';
-            messages.forEach(msg => {
-                const isOwn = msg.userId === state.currentUser.id;
-
-                // Handle timestamp - could be Firebase Timestamp or ISO string
-                let time = '';
-                if (msg.timestamp) {
-                    const date = msg.timestamp.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp);
-                    time = date.toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit'
-                    });
-                }
-
-                html += `
-                    <div class="chat-message ${isOwn ? 'own' : 'other'}">
-                        <div class="chat-message-header">
-                            <span class="chat-message-user">${escapeHtml(msg.userName)}</span>
-                            <span class="chat-message-time">${time}</span>
-                        </div>
-                        <div class="chat-message-bubble">
-                            ${escapeHtml(msg.text).replace(/\n/g, '<br>')}
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-            container.scrollTop = container.scrollHeight;
-        }
-
-        async function sendCommChatMessage() {
-            if (!chatSystem || !currentCommTask) return;
-
-            const input = document.getElementById('comm-chat-input');
-            const text = input.value.trim();
-
-            if (!text) return;
-
-            // Send message via Firebase
-            const success = await chatSystem.sendMessage(
-                currentCommTask.projectId,
-                currentCommTask.areaId,
-                currentCommTask.taskWbs,
-                text,
-                currentCommTask.task.name
-            );
-
-            if (success) {
-                // Clear input
-                input.value = '';
-
-                // Log activity for notifications
-                logActivity('TASK_MESSAGE', `New message in: ${currentCommTask.task.name}`, {
-                    taskName: currentCommTask.task.name,
-                    taskWbs: currentCommTask.taskWbs,
-                    message: text.substring(0, 100)
-                });
-
-                console.log('💬 Hub: Message sent successfully');
-                showAlert('Message sent!', 'success');
-            } else {
-                showAlert('Failed to send message', 'error');
-            }
-        }
-
-        function handleCommChatKeydown(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendCommChatMessage();
-            }
-        }
-
-        function toggleEmojiPicker(event) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            // Initialize emoji picker if not already created
-            if (!emojiPicker && typeof PMHubEmojiPicker !== 'undefined') {
-                emojiPicker = new PMHubEmojiPicker({
-                    onEmojiSelect: (emoji) => {
-                        console.log('😀 Emoji selected:', emoji);
-                    }
-                });
-            }
-
-            if (emojiPicker) {
-                const chatInput = document.getElementById('comm-chat-input');
-                const emojiBtn = event.currentTarget;
-                emojiPicker.toggle(chatInput, emojiBtn);
-            } else {
-                console.warn('Emoji picker not available');
-            }
-        }
-
-        // markCommMessagesRead removed - now handled by real-time chat system
-
-        function initializeChatSystem() {
-            // Wait for Firebase to be ready
-            setTimeout(() => {
-                if (window.firebaseEnabled && window.db && window.firestore && typeof PMHubChat !== 'undefined') {
-                    chatSystem = new PMHubChat({
-                        db: window.db,
-                        firestore: window.firestore,
-                        currentUser: state.currentUser,
-                        onMessageReceived: (message) => {
-                            // Show notification for new messages
-                            console.log('💬 New message received:', message);
-                        },
-                        onUnreadCountChanged: (projectId, areaId, taskWbs, count) => {
-                            // Update unread badge if needed
-                            console.log(`💬 Unread count for ${taskWbs}: ${count}`);
-                        }
-                    });
-                    console.log('✓ Hub: Real-time chat system initialized');
-                } else {
-                    console.warn('⚠️ Hub: Chat system not available - Firebase or PMHubChat not loaded');
-                }
-            }, 1000);
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // ============================================================================
         // ACTIVITY FEED FUNCTIONS
         // ============================================================================
 
         function renderActivityFeed() {
-            // UNIFIED ACTIVITY SYSTEM: Merge both old 'activities' and new 'activityLog' arrays
             if (!state.activities) state.activities = [];
-            if (!state.activityLog) state.activityLog = [];
-
-            // Combine both arrays (Worker uses activityLog, Hub uses activities)
-            const allActivities = [
-                ...state.activities,
-                ...state.activityLog
-            ];
-
-            // Remove duplicates based on ID and timestamp
-            const uniqueActivities = Array.from(
-                new Map(allActivities.map(a => [`${a.id}_${a.timestamp}`, a])).values()
-            );
-
-            console.log(`📊 Activity Feed: ${state.activities.length} from activities + ${state.activityLog.length} from activityLog = ${uniqueActivities.length} total`);
 
             // Populate filter dropdowns
             populateActivityFilters();
@@ -9884,7 +8251,7 @@
             const projectFilter = document.getElementById('activity-filter-project').value;
 
             // Filter activities
-            let filtered = uniqueActivities.filter(activity => {
+            let filtered = state.activities.filter(activity => {
                 if (sourceFilter !== 'all' && (activity.source || 'hub') !== sourceFilter) return false;
                 if (typeFilter !== 'all' && !activity.type.includes(typeFilter)) return false;
                 if (userFilter !== 'all' && activity.userId != userFilter) return false; // Use == for type coercion
@@ -9949,16 +8316,10 @@
         }
 
         function populateActivityFilters() {
-            // Combine both activity arrays for filter population
-            const allActivities = [
-                ...(state.activities || []),
-                ...(state.activityLog || [])
-            ];
-
             // Populate user filter
             const userFilter = document.getElementById('activity-filter-user');
             const users = new Set();
-            allActivities.forEach(a => {
+            (state.activities || []).forEach(a => {
                 if (a.userId) users.add(JSON.stringify({ id: a.userId, name: a.userName }));
             });
 
@@ -9980,20 +8341,14 @@
         }
 
         function updateActivityStats(filtered) {
-            // Combine both arrays for stats
-            const allActivities = [
-                ...(state.activities || []),
-                ...(state.activityLog || [])
-            ];
-
-            const total = allActivities.length;
+            const total = (state.activities || []).length;
             const today = filtered.filter(a => {
                 const activityDate = new Date(a.timestamp).toDateString();
                 const todayDate = new Date().toDateString();
                 return activityDate === todayDate;
             }).length;
-            const tasksComplete = allActivities.filter(a => a.type === 'TASK_COMPLETE' || a.type === 'TASK_COMPLETE_DETAILED').length;
-            const areasComplete = allActivities.filter(a => a.type === 'AREA_COMPLETE').length;
+            const tasksComplete = (state.activities || []).filter(a => a.type === 'TASK_COMPLETE').length;
+            const areasComplete = (state.activities || []).filter(a => a.type === 'AREA_COMPLETE').length;
 
             document.getElementById('activity-total').textContent = total;
             document.getElementById('activity-today').textContent = today;
@@ -10135,7 +8490,6 @@
                 'CLOCK_OUT': '🏁',
                 'TASK_START': '▶️',
                 'TASK_COMPLETE': '✅',
-                'TASK_MESSAGE': '💬',
                 'AREA_COMPLETE': '🎉',
                 'TOOL_CHECKOUT': '🔧',
                 'TOOL_CHECKIN': '✓',
@@ -10151,7 +8505,6 @@
                 'CLOCK_OUT': 'var(--accent-danger)',
                 'TASK_START': 'var(--accent-primary)',
                 'TASK_COMPLETE': 'var(--accent-success)',
-                'TASK_MESSAGE': 'var(--accent-secondary)',
                 'AREA_COMPLETE': 'var(--accent-warning)',
                 'TOOL_CHECKOUT': 'var(--accent-primary)',
                 'TOOL_CHECKIN': 'var(--accent-success)',
@@ -10262,24 +8615,11 @@
 
         // Broadcast state changes to other tabs/windows
         function broadcastStateChange(section = 'general') {
-            // Get latest activity for notification
-            const lastActivity = state.activities?.[state.activities.length - 1];
-            const currentUserStr = localStorage.getItem('pm_hub_current_user');
-            const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
-
             stateChannel.postMessage({
                 type: 'STATE_UPDATED',
                 section: section,
-                timestamp: Date.now(),
-                source: 'admin',
-                syncedBy: currentUser ? currentUser.name : 'admin',
-                activity: lastActivity
+                timestamp: Date.now()
             });
-
-            // Also broadcast via realtime module for enhanced notifications
-            if (window.pmRealtime && lastActivity) {
-                window.pmRealtime.broadcast(section, lastActivity);
-            }
         }
 
         // ===== ACTIVITY FEED MANUAL REFRESH =====
@@ -10310,93 +8650,5 @@
     <!-- Load Google APIs -->
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
-    <!-- Real-Time Sync & Notifications -->
-    <script src="pm-hub-realtime.js"></script>
-    <script>
-        // Initialize real-time sync after page load
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const currentUserStr = localStorage.getItem('pm_hub_current_user');
-                if (currentUserStr && window.PMHubRealtimeSync) {
-                    const currentUser = JSON.parse(currentUserStr);
-                    window.pmRealtime = new PMHubRealtimeSync({
-                        appName: 'Admin',
-                        currentUser: currentUser,
-                        onStateUpdate: (newState, update) => {
-                            console.log('🔄 Hub: State update received', update);
-
-                            // IMPORTANT: Preserve current selections using stored IDs (survives Firebase replacements)
-                            const currentProjectId = localStorage.getItem('pm_hub_current_project_id');
-                            const currentAreaId = localStorage.getItem('pm_hub_current_area_id');
-
-                            console.log('🔍 Hub: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
-
-                            // Update local state
-                            state = newState;
-
-                            // Restore current selections (maintaining references to actual objects)
-                            if (currentProjectId) {
-                                state.currentProject = state.projects?.find(p => p.id === currentProjectId) || null;
-                                console.log('🎯 Hub: Project restored:', state.currentProject ? state.currentProject.name : 'NOT FOUND');
-
-                                if (state.currentProject && currentAreaId) {
-                                    state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
-                                    console.log('🎯 Hub: Area restored:', state.currentArea ? state.currentArea.name : 'NOT FOUND');
-                                } else {
-                                    state.currentArea = null;
-                                }
-                            } else {
-                                state.currentProject = null;
-                                state.currentArea = null;
-                            }
-
-                            // Refresh ALL views to ensure everything is in sync
-                            // This ensures any linked data (assignees, team members, etc.) updates everywhere
-
-                            // 1. Projects & Tasks (always refresh)
-                            renderProjects();
-
-                            // 2. If viewing project details, refresh that view
-                            if (state.currentProject) {
-                                // If on project details view, refresh it
-                                const projectDetails = document.getElementById('projectDetails');
-                                if (projectDetails && projectDetails.style.display !== 'none') {
-                                    renderProjectDetails();
-                                }
-                            }
-
-                            // 3. Team members (affects task assignees, chat participants, etc.)
-                            renderTeamTables();
-
-                            // 4. Dashboard metrics
-                            updateDashboard();
-
-                            // 5. Activity feed (always refresh to show latest)
-                            renderActivityFeed();
-
-                            // Chat messages now handled by real-time Firebase listeners
-                            // No manual refresh needed
-
-                            console.log('✅ Hub: All views refreshed (selections preserved)');
-                        }
-                    });
-                    console.log('✓ Admin Hub: Real-time sync initialized');
-                }
-
-                // Initialize network monitoring and sync systems
-                setupNetworkMonitoring();
-                loadFirebaseSyncQueue();
-
-                // Process any pending Firebase operations after a short delay
-                if (state.firebaseSyncQueue.length > 0) {
-                    console.log(`📋 Found ${state.firebaseSyncQueue.length} pending Firebase operations`);
-                    setTimeout(() => {
-                        processFirebaseSyncQueue();
-                    }, 3000);
-                }
-            }, 2000); // Wait for full page load
-        });
-    </script>
 </body>
 </html>
