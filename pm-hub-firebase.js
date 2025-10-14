@@ -134,15 +134,22 @@ class PMHubFirebase {
                 console.log('✓ Activity logged');
             }
 
-            // Write to Firebase
-            console.log('☁️ Writing to Firebase...');
-            const docRef = this.firestore.doc(this.db, this.hubDocPath);
-            await this.firestore.setDoc(docRef, {
-                ...hubState,
-                lastModified: new Date().toISOString(),
-                lastSyncedBy: this.currentUser?.name || 'Unknown'
-            });
-            console.log('✓ Firebase write successful');
+            // Write to Firebase using PMHubSync (ensures WBS assignment)
+            console.log('☁️ Writing to Firebase via PMHubSync...');
+            if (window.PMHubSync) {
+                const sync = new PMHubSync('FirebaseOps', this.currentUser);
+                await sync.saveState(hubState, 'task-update');
+                console.log('✓ Firebase write successful via PMHubSync');
+            } else {
+                // Fallback to direct write (not recommended)
+                console.warn('⚠️ PMHubSync not available, using direct write');
+                const docRef = this.firestore.doc(this.db, this.hubDocPath);
+                await this.firestore.setDoc(docRef, {
+                    ...hubState,
+                    lastModified: new Date().toISOString(),
+                    lastSyncedBy: this.currentUser?.name || 'Unknown'
+                });
+            }
 
             // Update cache
             this.stateCache = hubState;
@@ -183,12 +190,19 @@ class PMHubFirebase {
             if (!hubState.timeEntries) hubState.timeEntries = [];
             hubState.timeEntries.push(timeEntry);
 
-            const docRef = this.firestore.doc(this.db, this.hubDocPath);
-            await this.firestore.setDoc(docRef, {
-                ...hubState,
-                lastModified: new Date().toISOString(),
-                lastSyncedBy: this.currentUser?.name || 'Unknown'
-            });
+            // Write using PMHubSync
+            if (window.PMHubSync) {
+                const sync = new PMHubSync('FirebaseOps', this.currentUser);
+                await sync.saveState(hubState, 'time-entry');
+            } else {
+                // Fallback
+                const docRef = this.firestore.doc(this.db, this.hubDocPath);
+                await this.firestore.setDoc(docRef, {
+                    ...hubState,
+                    lastModified: new Date().toISOString(),
+                    lastSyncedBy: this.currentUser?.name || 'Unknown'
+                });
+            }
 
             this.stateCache = hubState;
             this.lastFetchTime = Date.now();
@@ -228,15 +242,23 @@ class PMHubFirebase {
                 message: `Photo report: ${report.taskName || 'General'}`,
                 userId: this.currentUser?.id,
                 userName: this.currentUser?.name,
+                source: 'worker',
                 data: { reportId: report.id }
             });
 
-            const docRef = this.firestore.doc(this.db, this.hubDocPath);
-            await this.firestore.setDoc(docRef, {
-                ...hubState,
-                lastModified: new Date().toISOString(),
-                lastSyncedBy: this.currentUser?.name || 'Unknown'
-            });
+            // Write using PMHubSync
+            if (window.PMHubSync) {
+                const sync = new PMHubSync('FirebaseOps', this.currentUser);
+                await sync.saveState(hubState, 'photo-report');
+            } else {
+                // Fallback
+                const docRef = this.firestore.doc(this.db, this.hubDocPath);
+                await this.firestore.setDoc(docRef, {
+                    ...hubState,
+                    lastModified: new Date().toISOString(),
+                    lastSyncedBy: this.currentUser?.name || 'Unknown'
+                });
+            }
 
             this.stateCache = hubState;
             this.lastFetchTime = Date.now();
@@ -270,20 +292,29 @@ class PMHubFirebase {
                 message: message,
                 userId: this.currentUser?.id,
                 userName: this.currentUser?.name,
+                source: 'worker',
                 data: data
             });
 
-            const docRef = this.firestore.doc(this.db, this.hubDocPath);
-            await this.firestore.setDoc(docRef, {
-                ...hubState,
-                lastModified: new Date().toISOString(),
-                lastSyncedBy: this.currentUser?.name || 'Unknown'
-            });
+            // Write using PMHubSync
+            if (window.PMHubSync) {
+                const sync = new PMHubSync('FirebaseOps', this.currentUser);
+                await sync.saveState(hubState, 'activity-log');
+            } else {
+                // Fallback
+                const docRef = this.firestore.doc(this.db, this.hubDocPath);
+                await this.firestore.setDoc(docRef, {
+                    ...hubState,
+                    lastModified: new Date().toISOString(),
+                    lastSyncedBy: this.currentUser?.name || 'Unknown'
+                });
+            }
 
             this.stateCache = hubState;
             this.lastFetchTime = Date.now();
             localStorage.setItem('pmSystemState', JSON.stringify(hubState));
 
+            console.log(`✅ Activity logged to Firebase: ${type} - ${message}`);
             return true;
         } catch (error) {
             console.error('❌ Failed to log activity:', error);
