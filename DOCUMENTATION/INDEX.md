@@ -11,16 +11,16 @@
 | Category | Description | Count |
 |----------|-------------|-------|
 | **[Architecture](#-architecture)** | System design and data flow | 5 docs |
-| **[Implementation](#-implementation)** | What was built and how | 8 docs |
+| **[Implementation](#-implementation)** | What was built and how | 9 docs |
 | **[Testing](#-testing)** | Test plans and verification | 6 docs |
 | **[Guides](#-guides)** | How-to guides | 1 doc |
-| **[Reference](#-reference)** | Quick reference | 1 doc |
+| **[Reference](#-reference)** | Quick reference | 2 docs |
 | **[Setup](#-setup-guides)** | Initial setup | 5 docs |
 | **[Health Reports](#-health-reports)** | System health | 4 docs |
 | **[Implementation Notes](#-implementation-notes)** | Historical notes | 7 docs |
 | **[Troubleshooting](#-troubleshooting)** | Problem solving | 2 docs |
 
-**Total Documents**: 39
+**Total Documents**: 41
 
 ---
 
@@ -118,6 +118,15 @@
 - Progress tracking
 - Decisions made
 
+#### 9. [REALTIME_NOTIFICATIONS_SYSTEM.md](implementation/REALTIME_NOTIFICATIONS_SYSTEM.md) ⭐ **NEW**
+- Complete real-time notification system
+- How activities trigger notifications
+- Toast notification display and sounds
+- Firebase listener architecture
+- Echo prevention mechanism
+- Testing procedures and troubleshooting
+- **Best for**: Understanding how real-time updates and notifications work
+
 ---
 
 ## 🧪 Testing
@@ -182,13 +191,22 @@
 
 **Location**: `DOCUMENTATION/reference/`
 
-### [QUICK_REFERENCE.md](reference/QUICK_REFERENCE.md) ⭐ **QUICK LOOKUP**
+### 1. [QUICK_REFERENCE.md](reference/QUICK_REFERENCE.md) ⭐ **QUICK LOOKUP**
 - System overview in 1 page
 - Common patterns
 - Key functions and their locations
 - Troubleshooting tips
 - 5-minute smoke test
 - **Best for**: Quick lookups during development
+
+### 2. [ACTIVITY_FEED_GUIDE.md](reference/ACTIVITY_FEED_GUIDE.md) ⭐ **NEW**
+- Complete activity feed documentation
+- All activity types and what they log
+- How to interact with activity cards
+- Filtering and searching activities
+- Accessing Drive folders from activities
+- Practical use cases (tracking, auditing, invoicing)
+- **Best for**: Understanding what gets logged and how to use activity data
 
 ---
 

@@ -113,33 +113,56 @@ class PMHubFirebase {
             console.log('✓ Task updated:', task);
 
             // Add activity if provided
+            let activityData = null;
             if (activityType && activityMessage) {
                 console.log('📋 Adding activity log entry...');
                 if (!hubState.activityLog) hubState.activityLog = [];
-                hubState.activityLog.push({
+
+                activityData = {
                     id: Date.now().toString(),
                     timestamp: new Date().toISOString(),
                     type: activityType,
                     message: activityMessage,
                     userId: this.currentUser?.id,
                     userName: this.currentUser?.name,
+                    source: 'worker',
+                    projectId: projectId,
+                    projectName: project.name,
                     data: {
                         projectId,
                         areaId,
+                        areaName: area.name,
                         taskWbs,
                         taskName: task.name,
                         updates: taskUpdates
                     }
-                });
+                };
+
+                hubState.activityLog.push(activityData);
                 console.log('✓ Activity logged');
             }
 
             // Write to Firebase using PMHubSync (ensures WBS assignment)
             console.log('☁️ Writing to Firebase via PMHubSync...');
             if (window.PMHubSync) {
-                const sync = new PMHubSync('FirebaseOps', this.currentUser);
-                await sync.saveState(hubState, 'task-update');
+                const sync = new PMHubSync('Worker', this.currentUser);
+                const result = await sync.saveState(hubState, 'task-update', activityData);
                 console.log('✓ Firebase write successful via PMHubSync');
+
+                // Update cache
+                this.stateCache = hubState;
+                this.lastFetchTime = Date.now();
+
+                // Update localStorage as backup
+                localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+                console.log('✓ localStorage updated');
+
+                console.log('═══════════════════════════════════════');
+                console.log('✅ TASK UPDATE COMPLETE');
+                console.log('═══════════════════════════════════════');
+
+                // Return success with activity for notifications
+                return true;
             } else {
                 // Fallback to direct write (not recommended)
                 console.warn('⚠️ PMHubSync not available, using direct write');
@@ -149,20 +172,16 @@ class PMHubFirebase {
                     lastModified: new Date().toISOString(),
                     lastSyncedBy: this.currentUser?.name || 'Unknown'
                 });
+
+                // Update cache
+                this.stateCache = hubState;
+                this.lastFetchTime = Date.now();
+
+                // Update localStorage as backup
+                localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+
+                return true;
             }
-
-            // Update cache
-            this.stateCache = hubState;
-            this.lastFetchTime = Date.now();
-
-            // Update localStorage as backup
-            localStorage.setItem('pmSystemState', JSON.stringify(hubState));
-            console.log('✓ localStorage updated');
-
-            console.log('═══════════════════════════════════════');
-            console.log('✅ TASK UPDATE COMPLETE');
-            console.log('═══════════════════════════════════════');
-            return true;
 
         } catch (error) {
             console.log('═══════════════════════════════════════');
@@ -235,21 +254,29 @@ class PMHubFirebase {
 
             // Add activity log
             if (!hubState.activityLog) hubState.activityLog = [];
-            hubState.activityLog.push({
+            const activityData = {
                 id: Date.now().toString(),
                 timestamp: new Date().toISOString(),
                 type: 'REPORT',
-                message: `Photo report: ${report.taskName || 'General'}`,
+                message: `Uploaded ${report.photoCount || 0} photos: ${report.taskName || 'General'}`,
                 userId: this.currentUser?.id,
                 userName: this.currentUser?.name,
                 source: 'worker',
-                data: { reportId: report.id }
-            });
+                projectId: report.projectId,
+                projectName: report.projectName,
+                data: {
+                    reportId: report.id,
+                    taskName: report.taskName,
+                    photoCount: report.photoCount,
+                    reportsFolderId: report.reportsFolderId
+                }
+            };
+            hubState.activityLog.push(activityData);
 
-            // Write using PMHubSync
+            // Write using PMHubSync with activity
             if (window.PMHubSync) {
-                const sync = new PMHubSync('FirebaseOps', this.currentUser);
-                await sync.saveState(hubState, 'photo-report');
+                const sync = new PMHubSync('Worker', this.currentUser);
+                await sync.saveState(hubState, 'photo-report', activityData);
             } else {
                 // Fallback
                 const docRef = this.firestore.doc(this.db, this.hubDocPath);
@@ -285,7 +312,7 @@ class PMHubFirebase {
             if (!hubState) return false;
 
             if (!hubState.activityLog) hubState.activityLog = [];
-            hubState.activityLog.push({
+            const activityData = {
                 id: Date.now().toString(),
                 timestamp: new Date().toISOString(),
                 type: type,
@@ -293,13 +320,16 @@ class PMHubFirebase {
                 userId: this.currentUser?.id,
                 userName: this.currentUser?.name,
                 source: 'worker',
+                projectId: data?.projectId,
+                projectName: data?.projectName,
                 data: data
-            });
+            };
+            hubState.activityLog.push(activityData);
 
-            // Write using PMHubSync
+            // Write using PMHubSync with activity for notifications
             if (window.PMHubSync) {
-                const sync = new PMHubSync('FirebaseOps', this.currentUser);
-                await sync.saveState(hubState, 'activity-log');
+                const sync = new PMHubSync('Worker', this.currentUser);
+                await sync.saveState(hubState, 'activity-log', activityData);
             } else {
                 // Fallback
                 const docRef = this.firestore.doc(this.db, this.hubDocPath);

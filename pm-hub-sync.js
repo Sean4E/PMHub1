@@ -35,10 +35,10 @@ class PMHubSync {
         });
     }
 
-    async saveState(state, section = 'general') {
+    async saveState(state, section = 'general', activity = null) {
         if (!window.firebaseEnabled || !window.db || !window.firestore) {
             console.log(`ℹ️ ${this.appName}: Firebase not available`);
-            return false;
+            return { success: false };
         }
 
         try {
@@ -97,11 +97,22 @@ class PMHubSync {
             await window.firestore.setDoc(docRef, stateToSync);
 
             console.log(`✅ ${this.appName}: Firebase write complete`);
-            return true;
+
+            // If activity provided, extract the latest one for notification
+            let latestActivity = activity;
+            if (!latestActivity && stateToSync.activityLog && stateToSync.activityLog.length > 0) {
+                latestActivity = stateToSync.activityLog[stateToSync.activityLog.length - 1];
+            }
+
+            return {
+                success: true,
+                activity: latestActivity,
+                section: section
+            };
 
         } catch (error) {
             console.error(`❌ ${this.appName}: Firebase write failed:`, error);
-            return false;
+            return { success: false };
         }
     }
 
