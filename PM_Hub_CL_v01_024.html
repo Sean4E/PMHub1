@@ -3176,6 +3176,12 @@
             updateDashboard();
             updateModuleCount();
             renderNotifications(); // Initialize notification center
+
+            // Start real-time activity feed listener (like chat)
+            if (window.firebaseEnabled) {
+                startActivityFeedListener();
+                console.log('🎧 Real-time activity feed listener started');
+            }
             document.getElementById('eventDate').value = new Date().toISOString().split('T')[0];
 
             // Update Firebase status indicators
@@ -10187,6 +10193,75 @@
             saveState();
             renderActivityFeed();
             showAlert('Activity log cleared', 'success');
+        }
+
+        // ============================================================================
+        // REAL-TIME ACTIVITY FEED LISTENER (Like Chat)
+        // ============================================================================
+        let activityFeedUnsubscribe = null;
+
+        function startActivityFeedListener() {
+            if (!window.firebaseEnabled || !window.db || !window.firestore) {
+                console.log('ℹ️ Activity Feed: Firebase not available, real-time updates disabled');
+                return;
+            }
+
+            try {
+                const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+
+                console.log('🎧 Activity Feed: Starting real-time listener...');
+
+                // Set up real-time listener for activity updates
+                activityFeedUnsubscribe = window.firestore.onSnapshot(docRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data();
+
+                        console.log('📊 Activity Feed: Firebase update received');
+
+                        // Merge activities and activityLog from Firebase
+                        const firebaseActivities = data.activities || [];
+                        const firebaseActivityLog = data.activityLog || [];
+
+                        // Only update if data changed
+                        const oldCount = (state.activities?.length || 0) + (state.activityLog?.length || 0);
+                        const newCount = firebaseActivities.length + firebaseActivityLog.length;
+
+                        if (oldCount !== newCount) {
+                            console.log(`📊 Activity Feed: New activities detected (${oldCount} → ${newCount})`);
+
+                            // Update state with latest Firebase data
+                            state.activities = firebaseActivities;
+                            state.activityLog = firebaseActivityLog;
+
+                            // Save to localStorage
+                            localStorage.setItem('pmSystemState', JSON.stringify(state));
+
+                            // Refresh activity feed if currently viewing it
+                            const activitySection = document.getElementById('activity-section');
+                            if (activitySection && activitySection.style.display !== 'none') {
+                                console.log('🔄 Activity Feed: Refreshing display...');
+                                renderActivityFeed();
+                            } else {
+                                console.log('📝 Activity Feed: Updated in background (not currently viewing)');
+                            }
+                        }
+                    }
+                }, (error) => {
+                    console.error('❌ Activity Feed: Listener error:', error);
+                });
+
+                console.log('✅ Activity Feed: Real-time listener active');
+            } catch (error) {
+                console.error('❌ Activity Feed: Failed to start listener:', error);
+            }
+        }
+
+        function stopActivityFeedListener() {
+            if (activityFeedUnsubscribe) {
+                activityFeedUnsubscribe();
+                activityFeedUnsubscribe = null;
+                console.log('🛑 Activity Feed: Real-time listener stopped');
+            }
         }
 
         // ===== REAL-TIME STATE SYNC (Multi-tab + Worker sync) =====

@@ -1790,6 +1790,12 @@
                 } else {
                     console.warn('⚠️ Manager: Firebase operations not available');
                 }
+
+                // Start real-time activity feed listener (like chat)
+                if (window.firebaseEnabled) {
+                    startManagerActivityFeedListener();
+                    console.log('🎧 Manager: Real-time activity feed listener started');
+                }
             }, 1000);
         }
 
@@ -4081,6 +4087,74 @@ End of Report
             if (currentManagementView === 'activity') {
                 renderManagerActivityFeed();
                 showToast('Activity log refreshed', 'success');
+            }
+        }
+
+        // ============================================================================
+        // REAL-TIME ACTIVITY FEED LISTENER (Like Chat)
+        // ============================================================================
+        let managerActivityFeedUnsubscribe = null;
+
+        function startManagerActivityFeedListener() {
+            if (!window.firebaseEnabled || !window.db || !window.firestore) {
+                console.log('ℹ️ Manager Activity Feed: Firebase not available, real-time updates disabled');
+                return;
+            }
+
+            try {
+                const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+
+                console.log('🎧 Manager Activity Feed: Starting real-time listener...');
+
+                // Set up real-time listener for activity updates
+                managerActivityFeedUnsubscribe = window.firestore.onSnapshot(docRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data();
+
+                        console.log('📊 Manager Activity Feed: Firebase update received');
+
+                        // Merge activities and activityLog from Firebase
+                        const firebaseActivities = data.activities || [];
+                        const firebaseActivityLog = data.activityLog || [];
+
+                        // Only update if data changed
+                        const oldCount = (hubState.activities?.length || 0) + (hubState.activityLog?.length || 0);
+                        const newCount = firebaseActivities.length + firebaseActivityLog.length;
+
+                        if (oldCount !== newCount) {
+                            console.log(`📊 Manager Activity Feed: New activities detected (${oldCount} → ${newCount})`);
+
+                            // Update state with latest Firebase data
+                            hubState.activities = firebaseActivities;
+                            hubState.activityLog = firebaseActivityLog;
+
+                            // Save to localStorage
+                            localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+
+                            // Refresh activity feed if currently viewing it
+                            if (currentManagementView === 'activity') {
+                                console.log('🔄 Manager Activity Feed: Refreshing display...');
+                                renderManagerActivityFeed();
+                            } else {
+                                console.log('📝 Manager Activity Feed: Updated in background (not currently viewing)');
+                            }
+                        }
+                    }
+                }, (error) => {
+                    console.error('❌ Manager Activity Feed: Listener error:', error);
+                });
+
+                console.log('✅ Manager Activity Feed: Real-time listener active');
+            } catch (error) {
+                console.error('❌ Manager Activity Feed: Failed to start listener:', error);
+            }
+        }
+
+        function stopManagerActivityFeedListener() {
+            if (managerActivityFeedUnsubscribe) {
+                managerActivityFeedUnsubscribe();
+                managerActivityFeedUnsubscribe = null;
+                console.log('🛑 Manager Activity Feed: Real-time listener stopped');
             }
         }
 
