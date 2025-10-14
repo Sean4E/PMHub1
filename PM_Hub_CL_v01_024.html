@@ -51,6 +51,9 @@
     <!-- PM Hub Chat Library -->
     <script src="pm-hub-chat.js"></script>
 
+    <!-- PM Hub Emoji Picker -->
+    <script src="pm-hub-emoji.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -2093,6 +2096,12 @@
                                 rows="2"
                                 style="flex: 1; resize: vertical; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;"
                                 onkeydown="handleCommChatKeydown(event)"></textarea>
+                            <button class="emoji-btn" onclick="toggleEmojiPicker(event)"
+                                    title="Add emoji"
+                                    style="background: transparent; border: none; font-size: 24px;
+                                           cursor: pointer; padding: 8px; transition: transform 0.2s; height: fit-content;">
+                                😀
+                            </button>
                             <button class="btn btn-primary" onclick="sendCommChatMessage()" style="height: fit-content;">
                                 ➤ Send
                             </button>
@@ -9083,6 +9092,7 @@
         // Real-Time Chat System
         let chatSystem = null;
         let activeChatListener = null;
+        let emojiPicker = null;
 
         function loadCommProjects() {
             console.log('📂 Loading communication projects...');
@@ -9365,6 +9375,28 @@
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 sendCommChatMessage();
+            }
+        }
+
+        function toggleEmojiPicker(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Initialize emoji picker if not already created
+            if (!emojiPicker && typeof PMHubEmojiPicker !== 'undefined') {
+                emojiPicker = new PMHubEmojiPicker({
+                    onEmojiSelect: (emoji) => {
+                        console.log('😀 Emoji selected:', emoji);
+                    }
+                });
+            }
+
+            if (emojiPicker) {
+                const chatInput = document.getElementById('comm-chat-input');
+                const emojiBtn = event.currentTarget;
+                emojiPicker.toggle(chatInput, emojiBtn);
+            } else {
+                console.warn('Emoji picker not available');
             }
         }
 

@@ -45,6 +45,9 @@
     <!-- PM Hub Chat Library -->
     <script src="pm-hub-chat.js"></script>
 
+    <!-- PM Hub Emoji Picker -->
+    <script src="pm-hub-emoji.js"></script>
+
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
@@ -1488,6 +1491,9 @@
                     placeholder="Type your message..."
                     rows="1"
                     onkeydown="handleChatKeydown(event)"></textarea>
+                <button class="emoji-btn" onclick="toggleEmojiPicker(event)" title="Add emoji" style="background: transparent; border: none; font-size: 24px; cursor: pointer; padding: 8px; transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'">
+                    😀
+                </button>
                 <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
             </div>
         </div>
@@ -1516,6 +1522,9 @@
         // Real-Time Chat System
         let chatSystem = null;
         let activeChatListener = null;
+
+        // Emoji Picker
+        let emojiPicker = null;
 
         // Edit state tracking
         let editingTaskAreaId = null;
@@ -1657,7 +1666,36 @@
                 } else {
                     console.warn('⚠️ Manager: Chat system not available - Firebase or PMHubChat not loaded');
                 }
+
+                // Initialize emoji picker
+                if (typeof PMHubEmojiPicker !== 'undefined') {
+                    emojiPicker = new PMHubEmojiPicker({
+                        onEmojiSelect: (emoji) => {
+                            console.log('😀 Emoji selected:', emoji);
+                        }
+                    });
+                    console.log('✓ Manager: Emoji picker initialized');
+                }
             }, 1000);
+        }
+
+        function toggleEmojiPicker(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!emojiPicker && typeof PMHubEmojiPicker !== 'undefined') {
+                emojiPicker = new PMHubEmojiPicker({
+                    onEmojiSelect: (emoji) => {
+                        console.log('😀 Emoji selected:', emoji);
+                    }
+                });
+            }
+
+            if (emojiPicker) {
+                const chatInput = document.getElementById('chat-input');
+                const emojiBtn = event.currentTarget;
+                emojiPicker.toggle(chatInput, emojiBtn);
+            }
         }
 
         // Live Clock Functions
