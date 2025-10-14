@@ -2849,6 +2849,19 @@
 
             const task = currentChatTask.task;
 
+            // Initialize conversation if needed
+            if (!task.conversation) {
+                task.conversation = {
+                    messages: [],
+                    participants: [currentUser.name]
+                };
+            }
+
+            // Add participant if not already in list
+            if (!task.conversation.participants.includes(currentUser.name)) {
+                task.conversation.participants.push(currentUser.name);
+            }
+
             // Create message
             const message = {
                 id: Date.now().toString(),

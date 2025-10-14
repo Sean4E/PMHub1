@@ -3027,12 +3027,15 @@
             },
             
             broadcastUpdate: function(type, data) {
-                const channel = new BroadcastChannel('pm_hub_updates');
-                channel.postMessage({ 
-                    type, 
-                    data, 
-                    timestamp: new Date().toISOString() 
+                const channel = new BroadcastChannel('pm_hub_state'); // Use same channel as manager/worker
+                channel.postMessage({
+                    type: 'STATE_UPDATED',
+                    section: 'projects',
+                    source: 'hub',
+                    syncedBy: state.currentUser?.name || 'admin',
+                    timestamp: Date.now() // Use timestamp for consistency
                 });
+                channel.close(); // Close after sending
             },
             
             syncToFirebase: async function(collection, doc, data) {
@@ -3362,7 +3365,7 @@
             });
         }
 
-        function saveState(section = 'general') {
+        async function saveState(section = 'general') {
             // Assign WBS to all tasks in all areas before saving
             if (state.projects) {
                 state.projects.forEach(project => {
@@ -3388,6 +3391,9 @@
                 currentArea: state.currentArea ? { id: state.currentArea.id } : null
             };
             localStorage.setItem('pmSystemState', JSON.stringify(stateToSave));
+
+            // Sync to Firebase
+            await syncStateToFirebase();
 
             // Broadcast update to modules
             window.PMHub.broadcastUpdate('STATE_UPDATED', {
@@ -9297,6 +9303,19 @@
             const task = currentCommTask.task;
 
             console.log('📤 Sending message:', text.substring(0, 50) + '...');
+
+            // Initialize conversation if needed
+            if (!task.conversation) {
+                task.conversation = {
+                    messages: [],
+                    participants: [state.currentUser.name]
+                };
+            }
+
+            // Add participant if not already in list
+            if (!task.conversation.participants.includes(state.currentUser.name)) {
+                task.conversation.participants.push(state.currentUser.name);
+            }
 
             // Create message
             const message = {
