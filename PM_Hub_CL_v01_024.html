@@ -8268,8 +8268,10 @@
             document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
             document.getElementById(`${section}-section`).style.display = 'grid';
 
-            // Start chat polling when entering Chat tab (modules section)
+            // Handle section-specific initialization
             if (section === 'modules') {
+                // Chat tab: Load projects and start polling
+                loadCommProjects();
                 startHubChatPolling();
             } else if (section === 'calendar') {
                 // Populate project filter dropdown
@@ -8286,8 +8288,6 @@
                 }
             } else if (section === 'admin') {
                 updateDashboard();
-            } else if (section === 'modules') {
-                loadCommProjects();
             } else if (section === 'activity') {
                 renderActivityFeed();
             }
