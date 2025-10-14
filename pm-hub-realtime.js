@@ -62,33 +62,30 @@ class PMHubRealtimeSync {
                 if (doc.exists()) {
                     const data = doc.data();
 
-                    // Check if this is a real update (newer than last received)
-                    const updateTimestamp = data.lastModified ? new Date(data.lastModified).getTime() : 0;
+                    // Get timestamp from Firebase data
+                    const firebaseLastModified = data.lastModified;
 
-                    // CRITICAL: Skip updates that we just wrote ourselves (prevents echo/flash)
-                    // Allow a 500ms grace period for our own writes to propagate
-                    const timeSinceLastUpdate = Date.now() - this.lastUpdateTimestamp;
-                    const isOwnUpdate = data.lastSyncedBy === (this.currentUser?.name || 'System') && timeSinceLastUpdate < 500;
+                    // Get last known timestamp from localStorage
+                    const lastKnownUpdate = localStorage.getItem('lastFirestoreUpdate');
 
-                    if (isOwnUpdate) {
-                        console.log(`🔄 ${this.appName}: Skipping own Firebase write echo (${data.lastSyncedBy})`);
-                        // Update timestamp to prevent processing this update again
-                        this.lastUpdateTimestamp = updateTimestamp;
-                        return;
-                    }
-
-                    if (updateTimestamp > this.lastUpdateTimestamp) {
+                    // Only process if this is a NEW update
+                    if (lastKnownUpdate !== firebaseLastModified) {
                         console.log(`☁️ ${this.appName}: Firebase update detected from ${data.lastSyncedBy}`);
-                        console.log(`   - Update timestamp: ${updateTimestamp} > Last: ${this.lastUpdateTimestamp}`);
+                        console.log(`   - Firebase timestamp: ${firebaseLastModified}`);
+                        console.log(`   - Last known: ${lastKnownUpdate}`);
 
+                        // Update the last known timestamp
+                        localStorage.setItem('lastFirestoreUpdate', firebaseLastModified);
+
+                        // Process the update
                         this.handleStateUpdate({
                             source: 'firebase',
                             data: data,
                             syncedBy: data.lastSyncedBy,
-                            timestamp: updateTimestamp
+                            timestamp: new Date(firebaseLastModified).getTime()
                         });
                     } else {
-                        console.log(`⏭️ ${this.appName}: Skipping old/duplicate Firebase update (timestamp: ${updateTimestamp})`);
+                        console.log(`⏭️ ${this.appName}: Skipping duplicate Firebase update (same timestamp)`);
                     }
                 }
             }, (error) => {
@@ -162,22 +159,49 @@ class PMHubRealtimeSync {
             }
         }
 
+        // Extract latest activity from new state for notification
+        let latestActivity = null;
+        if (newState.activityLog && newState.activityLog.length > 0) {
+            latestActivity = newState.activityLog[newState.activityLog.length - 1];
+            console.log(`📋 ${this.appName}: Latest activity found:`, {
+                type: latestActivity.type,
+                message: latestActivity.message,
+                userName: latestActivity.userName,
+                source: latestActivity.source
+            });
+        }
+
         // Call the app-specific update handler
         console.log(`🎯 ${this.appName}: Calling onStateUpdate callback`);
         this.onStateUpdate(newState, update);
 
         // Show notification if there's activity info
-        if (update.activity) {
+        if (latestActivity && latestActivity.userName) {
+            console.log(`🔔 ${this.appName}: Queueing notification for activity from ${latestActivity.userName}`);
+            this.queueNotification(latestActivity, latestActivity.userName);
+        } else if (update.activity) {
+            // Fallback to activity from update object
+            console.log(`🔔 ${this.appName}: Queueing notification from update.activity`);
             this.queueNotification(update.activity, update.syncedBy);
         }
     }
 
     queueNotification(activity, syncedBy) {
+        console.log(`🔔 ${this.appName}: Notification check:`, {
+            activityType: activity.type,
+            activityMessage: activity.message,
+            syncedBy: syncedBy,
+            currentUser: this.currentUser?.name,
+            source: activity.source
+        });
+
         // Don't show notifications for our own actions
         if (syncedBy === this.currentUser?.name) {
+            console.log(`⏭️ ${this.appName}: Skipping notification (own action: ${syncedBy})`);
             return;
         }
 
+        console.log(`✅ ${this.appName}: Notification queued from ${syncedBy}`);
         this.notificationQueue.push({ activity, syncedBy });
 
         // Debounce notifications (show max once per 2 seconds)

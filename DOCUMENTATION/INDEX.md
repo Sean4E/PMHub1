@@ -14,13 +14,13 @@
 | **[Implementation](#-implementation)** | What was built and how | 9 docs |
 | **[Testing](#-testing)** | Test plans and verification | 6 docs |
 | **[Guides](#-guides)** | How-to guides | 1 doc |
-| **[Reference](#-reference)** | Quick reference | 2 docs |
+| **[Reference](#-reference)** | Quick reference | 3 docs |
 | **[Setup](#-setup-guides)** | Initial setup | 5 docs |
 | **[Health Reports](#-health-reports)** | System health | 4 docs |
 | **[Implementation Notes](#-implementation-notes)** | Historical notes | 7 docs |
 | **[Troubleshooting](#-troubleshooting)** | Problem solving | 2 docs |
 
-**Total Documents**: 41
+**Total Documents**: 42
 
 ---
 
@@ -207,6 +207,16 @@
 - Accessing Drive folders from activities
 - Practical use cases (tracking, auditing, invoicing)
 - **Best for**: Understanding what gets logged and how to use activity data
+
+### 3. [GLOBAL_REALTIME_SYNC.md](reference/GLOBAL_REALTIME_SYNC.md) ⭐ **NEW**
+- Multi-country, multi-browser real-time sync
+- Firebase global infrastructure explained
+- Latency by region and network type
+- Browser/device compatibility
+- Offline persistence and sync
+- Testing procedures for global deployment
+- Cost estimation and scaling
+- **Best for**: Understanding global deployment capabilities
 
 ---
 
