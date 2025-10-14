@@ -251,10 +251,17 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: (response) => {
+                callback: async (response) => {
                     if (response.access_token) {
+                        console.log('✅ Google Drive token received');
+
+                        // Save to localStorage for immediate use
                         localStorage.setItem('google_access_token', response.access_token);
                         localStorage.setItem('drive_connected', 'true');
+
+                        // Save to Firebase for global access
+                        await saveDriveTokenToFirebase(response.access_token);
+
                         updateDriveStatus(true);
                     }
                 }
@@ -305,7 +312,7 @@
     <!-- Firebase -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyDnwDzHtjFKaWY-VwIMJtomfunkp7t9GFc",
@@ -374,7 +381,73 @@
             updateFirebaseStatus(true);
         }
 
-        window.firebaseModule = { initializeApp, getFirestore, collection, getDocs };
+        // Save Drive token to Firebase for global access
+        window.saveDriveTokenToFirebase = async function(token) {
+            if (!window.firebaseDB) {
+                console.warn('⚠️ Firebase not initialized, cannot save Drive token globally');
+                return;
+            }
+
+            try {
+                console.log('💾 Saving Drive token to Firebase...');
+                const tokenDoc = doc(window.firebaseDB, 'pmConfig', 'driveToken');
+                await setDoc(tokenDoc, {
+                    token: token,
+                    lastUpdated: new Date().toISOString(),
+                    updatedBy: 'admin'
+                });
+                console.log('✅ Drive token saved to Firebase successfully');
+            } catch (error) {
+                console.error('❌ Error saving Drive token to Firebase:', error);
+            }
+        };
+
+        // Load Drive token from Firebase
+        window.loadDriveTokenFromFirebase = async function() {
+            if (!window.firebaseDB) {
+                console.warn('⚠️ Firebase not initialized, cannot load Drive token');
+                return null;
+            }
+
+            try {
+                console.log('📥 Loading Drive token from Firebase...');
+                const tokenDoc = doc(window.firebaseDB, 'pmConfig', 'driveToken');
+                const docSnap = await getDoc(tokenDoc);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log('✅ Drive token loaded from Firebase');
+                    console.log('   Last updated:', data.lastUpdated);
+                    console.log('   Updated by:', data.updatedBy);
+                    return data.token;
+                } else {
+                    console.log('ℹ️ No Drive token found in Firebase');
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Error loading Drive token from Firebase:', error);
+                return null;
+            }
+        };
+
+        // On page load, try to load token from Firebase
+        window.addEventListener('load', async () => {
+            // Wait a bit for Firebase to initialize
+            setTimeout(async () => {
+                if (window.firebaseDB && !localStorage.getItem('google_access_token')) {
+                    console.log('🔍 Checking for Drive token in Firebase...');
+                    const token = await loadDriveTokenFromFirebase();
+                    if (token) {
+                        localStorage.setItem('google_access_token', token);
+                        localStorage.setItem('drive_connected', 'true');
+                        updateDriveStatus(true);
+                        console.log('✅ Drive token loaded from Firebase and saved to localStorage');
+                    }
+                }
+            }, 1000);
+        });
+
+        window.firebaseModule = { initializeApp, getFirestore, collection, getDocs, doc, setDoc, getDoc };
     </script>
 
     <script type="module">
@@ -446,6 +519,16 @@
                 if (window.firebaseApp && window.firebaseDB) {
                     localStorage.setItem('firebase_initialized', 'true');
                 }
+
+                // Load Drive token from Firebase if not in localStorage
+                if (!localStorage.getItem('google_access_token') && window.firebaseDB) {
+                    const token = await loadDriveTokenFromFirebase();
+                    if (token) {
+                        localStorage.setItem('google_access_token', token);
+                        localStorage.setItem('drive_connected', 'true');
+                    }
+                }
+
                 if (localStorage.getItem('google_access_token')) {
                     localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
                 }
@@ -469,6 +552,16 @@
                     if (window.firebaseApp && window.firebaseDB) {
                         localStorage.setItem('firebase_initialized', 'true');
                     }
+
+                    // Load Drive token from Firebase if not in localStorage
+                    if (!localStorage.getItem('google_access_token') && window.firebaseDB) {
+                        const token = await loadDriveTokenFromFirebase();
+                        if (token) {
+                            localStorage.setItem('google_access_token', token);
+                            localStorage.setItem('drive_connected', 'true');
+                        }
+                    }
+
                     if (localStorage.getItem('google_access_token')) {
                         localStorage.setItem('drive_token_from_login', localStorage.getItem('google_access_token'));
                     }
