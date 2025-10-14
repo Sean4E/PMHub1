@@ -9752,24 +9752,60 @@
                         appName: 'Admin',
                         currentUser: currentUser,
                         onStateUpdate: (newState, update) => {
+                            console.log('🔄 Hub: State update received', update);
+
                             // Update local state
                             state = newState;
 
-                            // Refresh relevant views based on what changed
-                            if (update.section === 'projects') {
-                                renderProjects();
-                                updateDashboard();
-                            } else if (update.section === 'team' || update.section === 'users') {
-                                renderTeamTables();
-                            } else if (update.section === 'tools') {
-                                // Refresh tools if that section exists
-                            } else {
-                                // General refresh
-                                updateDashboard();
+                            // Refresh ALL views to ensure everything is in sync
+                            // This ensures any linked data (assignees, team members, etc.) updates everywhere
+
+                            // 1. Projects & Tasks (always refresh)
+                            renderProjects();
+
+                            // 2. If viewing project details, refresh that view
+                            if (state.currentProject) {
+                                const updatedProject = state.projects?.find(p => p.id === state.currentProject.id);
+                                if (updatedProject) {
+                                    state.currentProject = updatedProject;
+                                    // If on project details view, refresh it
+                                    const projectDetails = document.getElementById('projectDetails');
+                                    if (projectDetails && projectDetails.style.display !== 'none') {
+                                        renderProjectDetails();
+                                    }
+                                }
                             }
 
-                            // Always refresh activity feed
+                            // 3. Team members (affects task assignees, chat participants, etc.)
+                            renderTeamTables();
+
+                            // 4. Dashboard metrics
+                            updateDashboard();
+
+                            // 5. Activity feed (always refresh to show latest)
                             renderActivityFeed();
+
+                            // 6. If chat is open, refresh messages
+                            const chatSection = document.getElementById('chat-messages-container');
+                            if (chatSection && state.selectedTaskForChat) {
+                                // Find updated task
+                                const project = state.projects?.find(p => p.id === state.selectedTaskForChat.projectId);
+                                if (project) {
+                                    const area = project.areas?.find(a => a.id === state.selectedTaskForChat.areaId);
+                                    if (area) {
+                                        const task = area.tasks?.find(t => t.wbs === state.selectedTaskForChat.wbs);
+                                        if (task) {
+                                            state.selectedTaskForChat = task;
+                                            // Refresh chat if it's in the Chat tab
+                                            if (document.querySelector('.nav-tab.active')?.textContent.includes('Chat')) {
+                                                renderCommMessages();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            console.log('✅ Hub: All views refreshed');
                         }
                     });
                     console.log('✓ Admin Hub: Real-time sync initialized');

@@ -1925,12 +1925,13 @@
                         task.status === 'progress' &&
                         !task.completed &&
                         task.startedBy === currentUser.name) {
+                        // Return full task object with context properties
                         return {
+                            ...task, // Copy all task properties including conversation
                             projectId: selectedProject.id,
+                            projectName: selectedProject.name,
                             areaId: area.id,
-                            areaName: area.name,
-                            wbs: task.wbs,
-                            name: task.name
+                            areaName: area.name
                         };
                     }
                 }
@@ -2140,12 +2141,13 @@
                     console.log('🔄 Continuing task:', task.name, '| WBS:', task.wbs);
                 }
 
+                // Store full task object with all properties (including conversation)
                 currentTask = {
+                    ...task, // Copy all task properties
                     projectId: project.id,
+                    projectName: project.name,
                     areaId: areaId,
-                    areaName: area.name,
-                    wbs: taskWbs,
-                    name: task.name
+                    areaName: area.name
                 };
 
                 if (isContinuing) {
@@ -3204,6 +3206,8 @@ End of Report
                         appName: 'Worker',
                         currentUser: currentUser,
                         onStateUpdate: (newState, update) => {
+                            console.log('🔄 Worker: State update received', update);
+
                             // Update local state
                             hubState = newState;
 
@@ -3225,6 +3229,7 @@ End of Report
 
                                 // Check if this is a task assigned to current worker
                                 const isTaskForWorker = update.activity.details?.assignee === currentUser.name ||
+                                                       update.activity.details?.assignees?.includes(currentUser.name) ||
                                                        update.activity.details?.taskAssignee === currentUser.name;
 
                                 // Show notification if it's a relevant type or assigned to this worker
@@ -3233,19 +3238,31 @@ End of Report
                                 }
                             }
 
-                            // If on task selection screen, refresh tasks
+                            // CLOCK-IN SCREEN: Refresh project list (in case new projects added)
+                            const clockInScreen = document.getElementById('clock-in-screen');
+                            if (clockInScreen && !clockInScreen.classList.contains('hidden')) {
+                                loadProjects(); // Refresh project dropdown
+                                console.log('🔄 Worker: Project list refreshed');
+                            }
+
+                            // TASK SELECTION SCREEN: Refresh task list
                             if (selectedProject) {
                                 selectedProject = hubState.projects?.find(p => p.id == selectedProject.id);
                                 const taskScreen = document.getElementById('task-selection-screen');
                                 if (taskScreen && !taskScreen.classList.contains('hidden')) {
+                                    // Refresh area dropdown (in case areas added/changed)
+                                    loadAreas();
+
+                                    // Refresh task list for current area
                                     const currentAreaId = document.getElementById('area-select')?.value;
                                     if (currentAreaId) {
                                         loadTasksForArea();
+                                        console.log('🔄 Worker: Task list refreshed');
                                     }
                                 }
                             }
 
-                            // If currently working on a task, update currentTask and refresh chat
+                            // ACTIVE TASK SCREEN: Update current task with latest data
                             if (currentTask) {
                                 const project = hubState.projects?.find(p => p.id == currentTask.projectId);
                                 if (project) {
@@ -3253,20 +3270,32 @@ End of Report
                                     if (area) {
                                         const task = area.tasks?.find(t => t.wbs == currentTask.wbs);
                                         if (task) {
-                                            currentTask = task;
+                                            // Update currentTask with full task data + context
+                                            currentTask = {
+                                                ...task, // Copy all task properties including conversation
+                                                projectId: project.id,
+                                                projectName: project.name,
+                                                areaId: area.id,
+                                                areaName: area.name
+                                            };
 
                                             // If chat is open, refresh messages
                                             const chatModal = document.getElementById('task-chat-modal');
                                             if (chatModal && chatModal.classList.contains('active')) {
                                                 renderChatMessages();
+                                                console.log('💬 Worker: Chat refreshed');
                                             }
 
-                                            // Update badge
+                                            // Update chat badge
                                             updateChatBadge();
+
+                                            console.log('✅ Worker: Current task updated');
                                         }
                                     }
                                 }
                             }
+
+                            console.log('✅ Worker: All views refreshed');
                         }
                     });
                     console.log('✓ Worker: Real-time sync initialized');
