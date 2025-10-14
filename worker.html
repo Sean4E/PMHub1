@@ -2347,9 +2347,20 @@
 
                 const completedAt = new Date().toISOString();
 
+                // Calculate variance for analytics
+                const variance = task.estimatedHours ? actualHours - task.estimatedHours : 0;
+
                 // 🔥 REAL-TIME: Write task completion directly to Firebase
                 if (firebaseOps) {
-                    console.log('🔥 Worker: Completing task in Firebase - Manager & Hub will see this instantly!');
+                    console.log('═══════════════════════════════════════');
+                    console.log('🔥 Worker: Completing task in Firebase');
+                    console.log('═══════════════════════════════════════');
+                    console.log('  Task:', task.name);
+                    console.log('  WBS:', currentTask.wbs);
+                    console.log('  Actual Hours:', actualHours);
+                    console.log('  Estimated Hours:', task.estimatedHours || 'N/A');
+                    console.log('  Variance:', variance);
+
                     const success = await firebaseOps.updateTask(
                         project.id,
                         currentTask.areaId,
@@ -2362,7 +2373,7 @@
                             actualHours: actualHours
                         },
                         'TASK_COMPLETE',
-                        `Completed: ${task.name}`
+                        `Completed: ${task.name} (${actualHours}h)`
                     );
 
                     if (success) {
@@ -2372,17 +2383,45 @@
                         task.completedAt = completedAt;
                         task.completedBy = currentUser.name;
                         task.actualHours = actualHours;
+
                         console.log('✅ Worker: Task completed and synced in real-time!');
-                        showToast(`Task completed - Manager & Hub updated instantly! (${actualHours}h)`, 'success');
+                        showToast(`Task completed - synced across all apps! (${actualHours}h)`, 'success');
+
+                        // Log detailed analytics data
+                        await firebaseOps.logActivity('TASK_COMPLETE_DETAILED', `Task completed with analytics`, {
+                            taskWbs: currentTask.wbs,
+                            taskName: task.name,
+                            projectId: project.id,
+                            projectCode: project.code,
+                            projectName: project.name,
+                            areaId: currentTask.areaId,
+                            areaName: area.name,
+                            billable: area.billable,
+                            actualHours: actualHours,
+                            estimatedHours: task.estimatedHours || 0,
+                            variance: variance,
+                            completedBy: currentUser.name,
+                            completedAt: completedAt,
+                            startedAt: task.startedAt,
+                            duration: actualHours
+                        });
 
                         // Check if area is complete
                         const allTasks = area.tasks || [];
                         const completedTasks = allTasks.filter(t => t.completed);
                         if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
+                            const totalHours = allTasks.reduce((sum, t) => sum + (t.actualHours || 0), 0);
                             await firebaseOps.logActivity('AREA_COMPLETE', `Area "${area.name}" is 100% complete`, {
+                                areaId: currentTask.areaId,
+                                areaName: area.name,
                                 billable: area.billable,
-                                requiresInvoice: area.billable
+                                requiresInvoice: area.billable,
+                                totalHours: totalHours,
+                                tasksCompleted: allTasks.length,
+                                projectId: project.id,
+                                projectName: project.name
                             });
+                            showToast(`🎉 Area "${area.name}" is 100% complete!`, 'success', 3000);
                         }
                     } else {
                         showToast('Task completed locally - will sync when connection restored', 'warning');
@@ -2426,7 +2465,9 @@
             checkForNextTask();
         }
 
-        function checkForNextTask() {
+        async function checkForNextTask() {
+            console.log('🔄 Checking for next available task...');
+
             // Reload the latest hub state
             loadHubState();
 
@@ -2435,13 +2476,17 @@
 
             if (!selectedProject) {
                 // Project no longer exists
+                console.log('⚠️ Project no longer available');
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('NAVIGATION', 'Project no longer available - requesting new project');
+                }
                 showNoWorkAvailable('Project no longer available. Please clock in to a new project.');
                 return;
             }
 
-            // Check if this project has any incomplete tasks assigned to me
-            let hasMyTasks = false;
-            let nextTask = null;
+            // Count total tasks available
+            let totalMyTasks = 0;
+            let tasksPerArea = {};
 
             if (selectedProject.areas) {
                 for (const area of selectedProject.areas) {
@@ -2451,20 +2496,44 @@
                         );
 
                         if (myIncompleteTasks.length > 0) {
-                            hasMyTasks = true;
-                            nextTask = myIncompleteTasks[0]; // Get first available task
-                            break;
+                            totalMyTasks += myIncompleteTasks.length;
+                            tasksPerArea[area.name] = myIncompleteTasks.length;
                         }
                     }
                 }
             }
 
-            if (hasMyTasks && nextTask) {
+            console.log('📊 Task availability:', {
+                totalTasks: totalMyTasks,
+                areasWithTasks: Object.keys(tasksPerArea).length,
+                breakdown: tasksPerArea
+            });
+
+            if (totalMyTasks > 0) {
                 // Show task selection screen with available tasks
+                console.log(`✅ ${totalMyTasks} task(s) available`);
                 showTaskSelection();
+                showToast(`${totalMyTasks} more task(s) available - keep going! 💪`, 'info', 3000);
+
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('NAVIGATION', `Task complete - ${totalMyTasks} task(s) remaining`, {
+                        totalTasksRemaining: totalMyTasks,
+                        areasWithTasks: Object.keys(tasksPerArea),
+                        projectId: selectedProject.id,
+                        projectName: selectedProject.name
+                    });
+                }
             } else {
                 // No more tasks assigned to me
+                console.log('🎉 All tasks complete!');
                 showNoWorkAvailable('All your tasks are complete! 🎉');
+
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('NAVIGATION', 'All assigned tasks complete - requesting new assignments', {
+                        projectId: selectedProject.id,
+                        projectName: selectedProject.name
+                    });
+                }
             }
         }
 

@@ -59,36 +59,62 @@ class PMHubFirebase {
      * @param {string} activityMessage - For logging
      */
     async updateTask(projectId, areaId, taskWbs, taskUpdates, activityType = null, activityMessage = null) {
-        console.log('🔄 Updating task in Firebase:', { projectId, areaId, taskWbs, taskUpdates });
+        console.log('═══════════════════════════════════════');
+        console.log('🔄 FIREBASE: Updating task');
+        console.log('═══════════════════════════════════════');
+        console.log('  Project ID:', projectId);
+        console.log('  Area ID:', areaId);
+        console.log('  Task WBS:', taskWbs);
+        console.log('  Updates:', taskUpdates);
+        console.log('  Activity:', activityType, '-', activityMessage);
 
         try {
             // Get current state
+            console.log('📥 Fetching hub state from Firebase...');
             const hubState = await this.getHubState(true); // Force refresh
             if (!hubState) {
                 throw new Error('Failed to fetch hub state');
             }
+            console.log('✓ Hub state fetched');
 
-            // Find and update the task
+            // Find project
+            console.log('🔍 Looking for project:', projectId);
             const project = hubState.projects?.find(p => p.id == projectId);
             if (!project) {
+                console.error('❌ Project not found!');
+                console.error('Available projects:', hubState.projects?.map(p => ({ id: p.id, name: p.name })));
                 throw new Error(`Project not found: ${projectId}`);
             }
+            console.log('✓ Project found:', project.name);
 
+            // Find area
+            console.log('🔍 Looking for area:', areaId);
             const area = project.areas?.find(a => a.id == areaId);
             if (!area) {
+                console.error('❌ Area not found!');
+                console.error('Available areas:', project.areas?.map(a => ({ id: a.id, name: a.name })));
                 throw new Error(`Area not found: ${areaId}`);
             }
+            console.log('✓ Area found:', area.name);
 
+            // Find task
+            console.log('🔍 Looking for task:', taskWbs);
             const task = area.tasks?.find(t => t.wbs == taskWbs);
             if (!task) {
+                console.error('❌ Task not found!');
+                console.error('Available tasks:', area.tasks?.map(t => ({ wbs: t.wbs, name: t.name })));
                 throw new Error(`Task not found: ${taskWbs}`);
             }
+            console.log('✓ Task found:', task.name);
 
             // Apply updates
+            console.log('📝 Applying updates to task...');
             Object.assign(task, taskUpdates);
+            console.log('✓ Task updated:', task);
 
             // Add activity if provided
             if (activityType && activityMessage) {
+                console.log('📋 Adding activity log entry...');
                 if (!hubState.activityLog) hubState.activityLog = [];
                 hubState.activityLog.push({
                     id: Date.now().toString(),
@@ -96,17 +122,27 @@ class PMHubFirebase {
                     type: activityType,
                     message: activityMessage,
                     userId: this.currentUser?.id,
-                    userName: this.currentUser?.name
+                    userName: this.currentUser?.name,
+                    data: {
+                        projectId,
+                        areaId,
+                        taskWbs,
+                        taskName: task.name,
+                        updates: taskUpdates
+                    }
                 });
+                console.log('✓ Activity logged');
             }
 
             // Write to Firebase
+            console.log('☁️ Writing to Firebase...');
             const docRef = this.firestore.doc(this.db, this.hubDocPath);
             await this.firestore.setDoc(docRef, {
                 ...hubState,
                 lastModified: new Date().toISOString(),
                 lastSyncedBy: this.currentUser?.name || 'Unknown'
             });
+            console.log('✓ Firebase write successful');
 
             // Update cache
             this.stateCache = hubState;
@@ -114,12 +150,19 @@ class PMHubFirebase {
 
             // Update localStorage as backup
             localStorage.setItem('pmSystemState', JSON.stringify(hubState));
+            console.log('✓ localStorage updated');
 
-            console.log('✅ Task updated in Firebase successfully');
+            console.log('═══════════════════════════════════════');
+            console.log('✅ TASK UPDATE COMPLETE');
+            console.log('═══════════════════════════════════════');
             return true;
 
         } catch (error) {
-            console.error('❌ Failed to update task in Firebase:', error);
+            console.log('═══════════════════════════════════════');
+            console.error('❌ FAILED TO UPDATE TASK');
+            console.error('Error:', error.message);
+            console.error('Stack:', error.stack);
+            console.log('═══════════════════════════════════════');
             return false;
         }
     }
