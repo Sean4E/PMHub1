@@ -5228,8 +5228,31 @@
                 document.getElementById('projectClient').value = '';
                 document.getElementById('projectLead').value = '';
 
+                // Save to localStorage immediately
                 saveState();
                 logActivity('Project Created', `Created project ${projectCode} - ${name}`);
+
+                // 🔥 CRITICAL: Write to Firebase IMMEDIATELY (don't wait for debounce)
+                if (window.firebaseEnabled && window.db && window.firestore) {
+                    console.log('🔥 Hub: Writing new project to Firebase immediately');
+                    try {
+                        const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                        const stateToSync = {
+                            ...state,
+                            collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
+                            currentProject: null,
+                            currentArea: null,
+                            lastModified: new Date().toISOString(),
+                            lastSyncedBy: state.currentUser?.name || 'Hub User'
+                        };
+
+                        await window.firestore.setDoc(docRef, stateToSync);
+                        console.log('✅ Hub: Project synced to Firebase immediately');
+                    } catch (error) {
+                        console.error('❌ Firebase write failed:', error);
+                    }
+                }
+
                 updateDashboard();
                 closeModal('newProjectModal');
                 renderProjects();
@@ -5810,6 +5833,28 @@
 
                 // Save state first (assigns WBS and broadcasts changes)
                 saveState();
+
+                // 🔥 CRITICAL: Write to Firebase IMMEDIATELY for tasks (don't wait for debounce)
+                if (window.firebaseEnabled && window.db && window.firestore) {
+                    console.log('🔥 Hub: Writing new task to Firebase immediately');
+                    try {
+                        const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                        const stateToSync = {
+                            ...state,
+                            collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
+                            currentProject: null,
+                            currentArea: null,
+                            lastModified: new Date().toISOString(),
+                            lastSyncedBy: state.currentUser?.name || 'Hub User'
+                        };
+
+                        await window.firestore.setDoc(docRef, stateToSync);
+                        console.log('✅ Hub: Task synced to Firebase immediately');
+                    } catch (error) {
+                        console.error('❌ Firebase write failed:', error);
+                    }
+                }
+
                 broadcastStateChange('projects');
 
                 // Create Drive folder for new task
@@ -6406,6 +6451,27 @@
 
             saveState();
             logActivity('Quick Task Added', `Added task "${name}" to area "${state.currentArea.name}"`);
+
+            // 🔥 CRITICAL: Write to Firebase IMMEDIATELY for quick tasks (don't wait for debounce)
+            if (window.firebaseEnabled && window.db && window.firestore) {
+                console.log('🔥 Hub: Writing quick task to Firebase immediately');
+                try {
+                    const docRef = window.firestore.doc(window.db, 'hubs', 'main');
+                    const stateToSync = {
+                        ...state,
+                        collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
+                        currentProject: null,
+                        currentArea: null,
+                        lastModified: new Date().toISOString(),
+                        lastSyncedBy: state.currentUser?.name || 'Hub User'
+                    };
+
+                    await window.firestore.setDoc(docRef, stateToSync);
+                    console.log('✅ Hub: Quick task synced to Firebase immediately');
+                } catch (error) {
+                    console.error('❌ Firebase write failed:', error);
+                }
+            }
 
             // Create Drive folder for new task
             if (state.connected) {
