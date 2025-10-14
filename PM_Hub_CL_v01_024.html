@@ -9437,7 +9437,22 @@
         // ============================================================================
 
         function renderActivityFeed() {
+            // UNIFIED ACTIVITY SYSTEM: Merge both old 'activities' and new 'activityLog' arrays
             if (!state.activities) state.activities = [];
+            if (!state.activityLog) state.activityLog = [];
+
+            // Combine both arrays (Worker uses activityLog, Hub uses activities)
+            const allActivities = [
+                ...state.activities,
+                ...state.activityLog
+            ];
+
+            // Remove duplicates based on ID and timestamp
+            const uniqueActivities = Array.from(
+                new Map(allActivities.map(a => [`${a.id}_${a.timestamp}`, a])).values()
+            );
+
+            console.log(`📊 Activity Feed: ${state.activities.length} from activities + ${state.activityLog.length} from activityLog = ${uniqueActivities.length} total`);
 
             // Populate filter dropdowns
             populateActivityFilters();
@@ -9449,7 +9464,7 @@
             const projectFilter = document.getElementById('activity-filter-project').value;
 
             // Filter activities
-            let filtered = state.activities.filter(activity => {
+            let filtered = uniqueActivities.filter(activity => {
                 if (sourceFilter !== 'all' && (activity.source || 'hub') !== sourceFilter) return false;
                 if (typeFilter !== 'all' && !activity.type.includes(typeFilter)) return false;
                 if (userFilter !== 'all' && activity.userId != userFilter) return false; // Use == for type coercion
@@ -9514,10 +9529,16 @@
         }
 
         function populateActivityFilters() {
+            // Combine both activity arrays for filter population
+            const allActivities = [
+                ...(state.activities || []),
+                ...(state.activityLog || [])
+            ];
+
             // Populate user filter
             const userFilter = document.getElementById('activity-filter-user');
             const users = new Set();
-            (state.activities || []).forEach(a => {
+            allActivities.forEach(a => {
                 if (a.userId) users.add(JSON.stringify({ id: a.userId, name: a.userName }));
             });
 
@@ -9539,14 +9560,20 @@
         }
 
         function updateActivityStats(filtered) {
-            const total = (state.activities || []).length;
+            // Combine both arrays for stats
+            const allActivities = [
+                ...(state.activities || []),
+                ...(state.activityLog || [])
+            ];
+
+            const total = allActivities.length;
             const today = filtered.filter(a => {
                 const activityDate = new Date(a.timestamp).toDateString();
                 const todayDate = new Date().toDateString();
                 return activityDate === todayDate;
             }).length;
-            const tasksComplete = (state.activities || []).filter(a => a.type === 'TASK_COMPLETE').length;
-            const areasComplete = (state.activities || []).filter(a => a.type === 'AREA_COMPLETE').length;
+            const tasksComplete = allActivities.filter(a => a.type === 'TASK_COMPLETE' || a.type === 'TASK_COMPLETE_DETAILED').length;
+            const areasComplete = allActivities.filter(a => a.type === 'AREA_COMPLETE').length;
 
             document.getElementById('activity-total').textContent = total;
             document.getElementById('activity-today').textContent = today;
@@ -9879,8 +9906,20 @@
                         onStateUpdate: (newState, update) => {
                             console.log('🔄 Hub: State update received', update);
 
+                            // IMPORTANT: Preserve current selections before updating state
+                            const currentProjectId = state.currentProject?.id;
+                            const currentAreaId = state.currentArea?.id;
+
                             // Update local state
                             state = newState;
+
+                            // Restore current selections (maintaining references to actual objects)
+                            if (currentProjectId) {
+                                state.currentProject = state.projects?.find(p => p.id === currentProjectId) || null;
+                                if (state.currentProject && currentAreaId) {
+                                    state.currentArea = state.currentProject.areas?.find(a => a.id === currentAreaId) || null;
+                                }
+                            }
 
                             // Refresh ALL views to ensure everything is in sync
                             // This ensures any linked data (assignees, team members, etc.) updates everywhere
@@ -9890,14 +9929,10 @@
 
                             // 2. If viewing project details, refresh that view
                             if (state.currentProject) {
-                                const updatedProject = state.projects?.find(p => p.id === state.currentProject.id);
-                                if (updatedProject) {
-                                    state.currentProject = updatedProject;
-                                    // If on project details view, refresh it
-                                    const projectDetails = document.getElementById('projectDetails');
-                                    if (projectDetails && projectDetails.style.display !== 'none') {
-                                        renderProjectDetails();
-                                    }
+                                // If on project details view, refresh it
+                                const projectDetails = document.getElementById('projectDetails');
+                                if (projectDetails && projectDetails.style.display !== 'none') {
+                                    renderProjectDetails();
                                 }
                             }
 
@@ -9913,7 +9948,7 @@
                             // Chat messages now handled by real-time Firebase listeners
                             // No manual refresh needed
 
-                            console.log('✅ Hub: All views refreshed');
+                            console.log('✅ Hub: All views refreshed (selections preserved)');
                         }
                     });
                     console.log('✓ Admin Hub: Real-time sync initialized');

@@ -3270,32 +3270,73 @@ End of Report
         }
 
         async function clockOut() {
-            if (!hubState.timeEntries) hubState.timeEntries = [];
+            const clockOutTime = new Date();
+            const hoursWorked = clockedInTime ? (clockOutTime - clockedInTime) / (1000 * 60 * 60) : 0;
+            const hoursWorkedFormatted = Math.round(hoursWorked * 10) / 10;
 
-            hubState.timeEntries.push({
+            // Calculate daily summary
+            const today = new Date().toISOString().split('T')[0];
+            const todayActivities = hubState.activities?.filter(a =>
+                a.userId === currentUser.id &&
+                a.timestamp?.startsWith(today)
+            ) || [];
+
+            const tasksCompletedToday = todayActivities.filter(a => a.type === 'TASK_COMPLETE').length;
+            const reportsSubmittedToday = todayActivities.filter(a => a.type === 'REPORT').length;
+
+            const timeEntry = {
                 id: Date.now().toString(),
                 userId: currentUser.id,
                 userName: currentUser.name,
                 projectId: selectedProject.id,
                 type: 'out',
-                timestamp: new Date().toISOString()
-            });
+                timestamp: clockOutTime.toISOString()
+            };
 
-            logActivity('CLOCK_OUT', `Clocked out from ${selectedProject.name}`);
+            // 🔥 REAL-TIME: Write clock-out directly to Firebase
+            if (firebaseOps) {
+                console.log('🔥 Worker: Writing clock-out to Firebase in real-time');
+                const success = await firebaseOps.addTimeEntry(timeEntry);
+                if (success) {
+                    await firebaseOps.logActivity('CLOCK_OUT',
+                        `Clocked out from ${selectedProject.name} (${hoursWorkedFormatted}h worked, ${tasksCompletedToday} tasks completed)`,
+                        {
+                            projectId: selectedProject.id,
+                            projectName: selectedProject.name,
+                            hoursWorked: hoursWorkedFormatted,
+                            tasksCompleted: tasksCompletedToday,
+                            reportsSubmitted: reportsSubmittedToday
+                        }
+                    );
+                    console.log('✅ Worker: Clock-out synced to Firebase');
+                    showToast(`Clocked out - ${hoursWorkedFormatted}h worked today!`, 'success');
+                } else {
+                    showToast('Clock-out saved locally - will sync when connection restored', 'warning');
+                }
+            } else {
+                // Fallback to localStorage
+                if (!hubState.timeEntries) hubState.timeEntries = [];
+                hubState.timeEntries.push(timeEntry);
+                logActivity('CLOCK_OUT', `Clocked out from ${selectedProject.name}`);
+                await saveHubState();
+            }
 
-            await saveHubState();
-
+            // Reset state
             selectedProject = null;
             currentTask = null;
             clockedInTime = null;
 
-            // Reset to initial screen
+            // Return to clock-in screen
             document.getElementById('task-selection-screen').classList.add('hidden');
             document.getElementById('active-task-screen').classList.add('hidden');
-            document.getElementById('clock-in-screen').classList.remove('hidden');
             document.getElementById('clock-out-fixed-btn').style.display = 'none';
 
-            alert('Clocked out successfully!');
+            // Reset and show clock-in screen
+            const clockInScreen = document.getElementById('clock-in-screen');
+            clockInScreen.classList.remove('hidden');
+
+            // Show fresh project selection
+            loadProjects();
         }
 
         function logActivity(type, message, details = {}) {

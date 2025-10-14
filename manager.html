@@ -48,6 +48,9 @@
     <!-- PM Hub Emoji Picker -->
     <script src="pm-hub-emoji.js"></script>
 
+    <!-- PM Hub Firebase Operations -->
+    <script src="pm-hub-firebase.js"></script>
+
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
@@ -1526,6 +1529,9 @@
         // Emoji Picker
         let emojiPicker = null;
 
+        // Firebase Operations
+        let firebaseOps = null;
+
         // Edit state tracking
         let editingTaskAreaId = null;
         let editingTaskWbs = null;
@@ -1675,6 +1681,18 @@
                         }
                     });
                     console.log('✓ Manager: Emoji picker initialized');
+                }
+
+                // Initialize Firebase operations
+                if (window.firebaseEnabled && window.db && window.firestore && typeof PMHubFirebase !== 'undefined') {
+                    firebaseOps = new PMHubFirebase({
+                        db: window.db,
+                        firestore: window.firestore,
+                        currentUser: currentUser
+                    });
+                    console.log('✓ Manager: Firebase operations initialized');
+                } else {
+                    console.warn('⚠️ Manager: Firebase operations not available');
                 }
             }, 1000);
         }
@@ -1928,32 +1946,64 @@
                 const task = area.tasks.find(t => t.wbs == taskWbs);
                 if (!task) return;
 
-                task.status = 'progress';
-                task.startedAt = new Date().toISOString();
-                task.startedBy = currentUser.name;
-
                 currentTask = {
+                    ...task,
                     projectId: project.id,
+                    projectName: project.name,
                     areaId: areaId,
-                    areaName: area.name,
-                    wbs: taskWbs,
-                    name: task.name
+                    areaName: area.name
                 };
 
-                logActivity('TASK_START', `Started: ${task.name}`);
+                // 🔥 REAL-TIME: Write task status directly to Firebase
+                if (firebaseOps) {
+                    console.log('🔥 Manager: Starting task in Firebase - Hub & Worker will see this instantly!');
+                    const success = await firebaseOps.updateTask(
+                        project.id,
+                        areaId,
+                        taskWbs,
+                        {
+                            status: 'progress',
+                            startedAt: new Date().toISOString(),
+                            startedBy: currentUser.name
+                        },
+                        'TASK_START',
+                        `Manager started: ${task.name}`
+                    );
+
+                    if (success) {
+                        task.status = 'progress';
+                        task.startedAt = currentTask.startedAt || new Date().toISOString();
+                        task.startedBy = currentUser.name;
+                        console.log('✅ Manager: Task started and synced in real-time!');
+                        showToast(`Task started - Hub & Worker updated instantly!`, 'success');
+                    } else {
+                        showToast('Task started locally - will sync when connection restored', 'warning');
+                    }
+                } else {
+                    // Fallback to localStorage
+                    task.status = 'progress';
+                    task.startedAt = new Date().toISOString();
+                    task.startedBy = currentUser.name;
+                    logActivity('TASK_START', `Started: ${task.name}`);
+                    await saveHubState('projects');
+                }
             } else {
                 currentTask = {
                     projectId: project.id,
+                    projectName: project.name,
                     areaId: areaId,
                     areaName: area.name,
                     wbs: null,
                     name: area.name
                 };
 
-                logActivity('TASK_START', `Started working on: ${area.name}`);
+                if (firebaseOps) {
+                    await firebaseOps.logActivity('TASK_START', `Manager started working on: ${area.name}`);
+                } else {
+                    logActivity('TASK_START', `Started working on: ${area.name}`);
+                }
             }
 
-            await saveHubState('projects');
             showActiveTask();
         }
 
@@ -1981,22 +2031,88 @@
                         actualHours = Math.round(hoursWorked * 10) / 10;
                     }
 
-                    task.status = 'done';
-                    task.completed = true;
-                    task.completedAt = new Date().toISOString();
-                    task.completedBy = currentUser.name;
-                    task.actualHours = actualHours;
+                    const completedAt = new Date().toISOString();
+                    const variance = task.estimatedHours ? actualHours - task.estimatedHours : 0;
 
-                    logActivity('TASK_COMPLETE', `Completed: ${task.name}`, {
-                        hours: actualHours
-                    });
+                    // 🔥 REAL-TIME: Write task completion directly to Firebase
+                    if (firebaseOps) {
+                        console.log('🔥 Manager: Completing task in Firebase - Hub & Worker will see this instantly!');
+                        const success = await firebaseOps.updateTask(
+                            project.id,
+                            currentTask.areaId,
+                            currentTask.wbs,
+                            {
+                                status: 'done',
+                                completed: true,
+                                completedAt: completedAt,
+                                completedBy: currentUser.name,
+                                actualHours: actualHours
+                            },
+                            'TASK_COMPLETE',
+                            `Manager completed: ${task.name} (${actualHours}h)`
+                        );
+
+                        if (success) {
+                            task.status = 'done';
+                            task.completed = true;
+                            task.completedAt = completedAt;
+                            task.completedBy = currentUser.name;
+                            task.actualHours = actualHours;
+                            console.log('✅ Manager: Task completed and synced in real-time!');
+                            showToast(`Task completed - Hub & Worker updated instantly! (${actualHours}h)`, 'success');
+
+                            // Log detailed analytics
+                            await firebaseOps.logActivity('TASK_COMPLETE_DETAILED', `Manager completed task with analytics`, {
+                                taskWbs: currentTask.wbs,
+                                taskName: task.name,
+                                projectId: project.id,
+                                projectName: project.name,
+                                areaId: currentTask.areaId,
+                                areaName: area.name,
+                                billable: area.billable,
+                                actualHours: actualHours,
+                                estimatedHours: task.estimatedHours || 0,
+                                variance: variance,
+                                completedBy: currentUser.name,
+                                completedAt: completedAt,
+                                startedAt: task.startedAt
+                            });
+
+                            // Check if area complete
+                            const allTasks = area.tasks || [];
+                            const completedTasks = allTasks.filter(t => t.completed);
+                            if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
+                                const totalHours = allTasks.reduce((sum, t) => sum + (t.actualHours || 0), 0);
+                                await firebaseOps.logActivity('AREA_COMPLETE', `Manager completed area "${area.name}"`, {
+                                    areaId: currentTask.areaId,
+                                    areaName: area.name,
+                                    billable: area.billable,
+                                    requiresInvoice: area.billable,
+                                    totalHours: totalHours,
+                                    tasksCompleted: allTasks.length,
+                                    projectId: project.id,
+                                    projectName: project.name
+                                });
+                                showToast(`🎉 Area "${area.name}" is 100% complete!`, 'success', 3000);
+                            }
+                        } else {
+                            showToast('Task completed locally - will sync when connection restored', 'warning');
+                        }
+                    } else {
+                        // Fallback to localStorage
+                        task.status = 'done';
+                        task.completed = true;
+                        task.completedAt = completedAt;
+                        task.completedBy = currentUser.name;
+                        task.actualHours = actualHours;
+                        logActivity('TASK_COMPLETE', `Completed: ${task.name}`, { hours: actualHours });
+                        await saveHubState('projects');
+                    }
                 }
             }
 
-            await saveHubState('projects');
             currentTask = null;
             showTaskSelection();
-            showToast('Task completed!', 'success');
         }
 
         function showReportModal() {
