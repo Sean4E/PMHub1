@@ -65,6 +65,18 @@ class PMHubRealtimeSync {
                     // Check if this is a real update (newer than last received)
                     const updateTimestamp = data.lastModified ? new Date(data.lastModified).getTime() : 0;
 
+                    // CRITICAL: Skip updates that we just wrote ourselves (prevents echo/flash)
+                    // Allow a 500ms grace period for our own writes to propagate
+                    const timeSinceLastUpdate = Date.now() - this.lastUpdateTimestamp;
+                    const isOwnUpdate = data.lastSyncedBy === (this.currentUser?.name || 'System') && timeSinceLastUpdate < 500;
+
+                    if (isOwnUpdate) {
+                        console.log(`🔄 ${this.appName}: Skipping own Firebase write echo (${data.lastSyncedBy})`);
+                        // Update timestamp to prevent processing this update again
+                        this.lastUpdateTimestamp = updateTimestamp;
+                        return;
+                    }
+
                     if (updateTimestamp > this.lastUpdateTimestamp) {
                         console.log(`☁️ ${this.appName}: Firebase update detected from ${data.lastSyncedBy}`);
                         console.log(`   - Update timestamp: ${updateTimestamp} > Last: ${this.lastUpdateTimestamp}`);

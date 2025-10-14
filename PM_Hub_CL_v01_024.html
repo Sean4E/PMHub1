@@ -3491,8 +3491,9 @@
                 });
             }
 
-            // Add last modified timestamp
+            // Add last modified timestamp and sync info
             state.lastModified = new Date().toISOString();
+            state.lastSyncedBy = state.currentUser || 'System';
 
             // Convert Set to Array for storage
             // IMPORTANT: Do NOT save currentProject/currentArea - those are UI state only
@@ -3502,15 +3503,19 @@
                 currentProject: null, // UI state - not saved
                 currentArea: null     // UI state - not saved
             };
+
+            // Save to localStorage as cache only (Firebase is source of truth)
             localStorage.setItem('pmSystemState', JSON.stringify(stateToSave));
 
-            // Sync to Firebase (debounced to avoid excessive writes)
-            // Clear any pending sync and schedule a new one
+            // FIREBASE-FIRST: Write IMMEDIATELY to Firebase (no debounce)
             if (window.firebaseEnabled) {
-                clearTimeout(window.firebaseSyncTimeout);
-                window.firebaseSyncTimeout = setTimeout(async () => {
+                console.log('🔥 Hub: Writing to Firebase immediately');
+                try {
                     await syncStateToFirebase();
-                }, 1000); // 1 second debounce
+                    console.log('✅ Hub: Firebase write complete');
+                } catch (error) {
+                    console.error('❌ Hub: Firebase write failed:', error);
+                }
             }
 
             // Broadcast update to modules
@@ -5223,35 +5228,14 @@
                 }
 
                 state.projects.push(project);
+                logActivity('PROJECT_CREATED', `Created project ${projectCode} - ${name}`, { projectCode, projectName: name });
+
+                // Save to Firebase immediately (now saveState writes immediately)
+                await saveState('projects');
 
                 document.getElementById('projectName').value = '';
                 document.getElementById('projectClient').value = '';
                 document.getElementById('projectLead').value = '';
-
-                // Save to localStorage immediately
-                saveState();
-                logActivity('Project Created', `Created project ${projectCode} - ${name}`);
-
-                // 🔥 CRITICAL: Write to Firebase IMMEDIATELY (don't wait for debounce)
-                if (window.firebaseEnabled && window.db && window.firestore) {
-                    console.log('🔥 Hub: Writing new project to Firebase immediately');
-                    try {
-                        const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                        const stateToSync = {
-                            ...state,
-                            collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
-                            currentProject: null,
-                            currentArea: null,
-                            lastModified: new Date().toISOString(),
-                            lastSyncedBy: state.currentUser?.name || 'Hub User'
-                        };
-
-                        await window.firestore.setDoc(docRef, stateToSync);
-                        console.log('✅ Hub: Project synced to Firebase immediately');
-                    } catch (error) {
-                        console.error('❌ Firebase write failed:', error);
-                    }
-                }
 
                 updateDashboard();
                 closeModal('newProjectModal');
@@ -6189,75 +6173,19 @@
                 await createAreaFolder(area);
             }
 
-            // 🔥 REAL-TIME: Write area creation directly to Firebase
-            if (window.firebaseEnabled && window.db && window.firestore) {
-                console.log('🔥 Hub: Creating area in Firebase - Manager & Worker will see this instantly!');
-                try {
-                    const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                    const docSnap = await window.firestore.getDoc(docRef);
+            // Log activity
+            logActivity('AREA_CREATED', `Created area: ${name} in ${state.currentProject.name}`, {
+                projectId: state.currentProject.id,
+                projectName: state.currentProject.name,
+                areaId: area.id,
+                areaName: name,
+                billable: area.billable
+            });
 
-                    if (docSnap.exists()) {
-                        const hubState = docSnap.data();
-                        const projectIndex = hubState.projects.findIndex(p => p.id === state.currentProject.id);
+            // Save to Firebase immediately (saveState now writes immediately)
+            await saveState('projects');
 
-                        if (projectIndex !== -1) {
-                            // Update project with new area
-                            hubState.projects[projectIndex] = state.currentProject;
-
-                            // Log activity to Firebase
-                            if (!hubState.activityLog) hubState.activityLog = [];
-                            hubState.activityLog.push({
-                                id: Date.now().toString(),
-                                type: 'AREA_CREATED',
-                                message: `Hub created area: ${name} in ${state.currentProject.name}`,
-                                timestamp: new Date().toISOString(),
-                                userId: state.currentUser?.id || 'hub',
-                                userName: state.currentUser?.name || 'Hub User',
-                                data: {
-                                    projectId: state.currentProject.id,
-                                    projectName: state.currentProject.name,
-                                    areaId: area.id,
-                                    areaName: name,
-                                    billable: area.billable
-                                },
-                                source: 'hub'
-                            });
-
-                            // Single write to Firebase with both project update and activity
-                            await window.firestore.setDoc(docRef, {
-                                ...hubState,
-                                lastModified: new Date().toISOString(),
-                                lastSyncedBy: state.currentUser?.name || 'Hub User'
-                            });
-
-                            console.log('✅ Hub: Area synced to Firebase in real-time!');
-                            showAlert(`Area "${name}" created and synced across all apps!`, 'success');
-                        }
-                    }
-                } catch (error) {
-                    console.error('❌ Firebase write failed:', error);
-
-                    // Queue the operation for retry
-                    queueFirebaseOperation('ADD_AREA', {
-                        projectId: state.currentProject.id,
-                        area: area,
-                        userId: state.currentUser?.name || 'Hub User'
-                    });
-
-                    showAlert(`Area "${name}" created locally - queued for sync when connection restored`, 'warning');
-                }
-            } else {
-                // Fallback to localStorage
-                saveState();
-                logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
-                showAlert(`Area "${name}" created!`, 'success');
-            }
-
-            // Save to localStorage as backup (even when Firebase is enabled)
-            saveState();
-
-            // Log activity locally
-            logActivity('Area Added', `Added area "${name}" to project ${state.currentProject.code}`);
+            showAlert(`Area "${name}" created and synced!`, 'success');
 
             // Clear form
             document.getElementById('areaName').value = '';
