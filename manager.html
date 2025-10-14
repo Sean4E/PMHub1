@@ -2923,25 +2923,29 @@ End of Report
 
             if (!area.tasks) area.tasks = [];
 
-            // Generate WBS number
-            const wbs = `${managementProject.code || 'T'}.${area.id.slice(-3)}.${area.tasks.length + 1}`;
-
-            // Create task with hub-compatible structure
+            // Create task with hub-compatible structure (WBS assigned by PMHubSync)
             const newTask = {
                 id: Date.now().toString(),
-                wbs: wbs,
                 name: name,
                 assignee: assignee,
+                assignees: assignee ? [assignee] : [], // Also support multiple assignees
                 priority: priority,
                 description: '',
                 status: 'todo',  // Hub uses 'todo', not 'pending'
                 completed: false,
                 children: [],  // Hub expects children array
+                projectId: managementProject.id,  // Parent reference
+                areaId: area.id,  // Parent reference
                 createdAt: new Date().toISOString(),
                 createdBy: currentUser.name
             };
 
             area.tasks.push(newTask);
+            console.log('✅ Manager: Task added to area.tasks', {
+                taskId: newTask.id,
+                taskName: newTask.name,
+                areaTaskCount: area.tasks.length
+            });
 
             // Update hubState with the modified project
             const projectIndex = hubState.projects.findIndex(p => p.id === managementProject.id);
@@ -2949,11 +2953,23 @@ End of Report
                 hubState.projects[projectIndex] = managementProject;
             }
 
-            // Log activity
-            logActivity('TASK_CREATED', `Manager created task: ${name} → ${assignee}`);
-
-            // Save to Firebase immediately (saveHubState now writes immediately)
+            // Save to Firebase immediately (WBS will be assigned by PMHubSync)
             await saveHubState('projects');
+            console.log('✅ Manager: Task saved to Firebase', {
+                taskWbs: newTask.wbs,
+                taskName: newTask.name,
+                hasWbs: !!newTask.wbs
+            });
+
+            // Log activity AFTER WBS is assigned
+            logActivity('TASK_CREATED', `Manager created task: ${name} (${newTask.wbs}) → ${assignee}`, {
+                taskId: newTask.id,
+                taskWbs: newTask.wbs,
+                taskName: name,
+                assignee: assignee,
+                projectId: managementProject.id,
+                areaId: area.id
+            });
 
             showToast('Task added - synced across all apps!', 'success');
             closeModal('add-task-modal');

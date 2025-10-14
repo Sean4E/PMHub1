@@ -5710,7 +5710,6 @@
                 let task;
                 let isNewTask = !wbs;
                 let oldAssignee = null;
-                let activityId = null; // Define at function scope
 
             if (wbs) {
                 // Edit existing task
@@ -5789,14 +5788,11 @@
                 };
 
                 state.currentArea.tasks.push(task);
-
-                // Log activity (will update with folder ID later if created)
-                activityId = Date.now().toString();
-                logActivity('Task Added', `Added task "${title}" via Add Task form`, {
+                console.log('✅ Hub: Task added to currentArea.tasks', {
                     taskId: task.id,
-                    taskWbs: task.wbs,
-                    taskName: title
-                }, activityId);
+                    taskName: task.name,
+                    areaTaskCount: state.currentArea.tasks.length
+                });
 
                 // Notify if task has assignees
                 if (assignees && assignees.length > 0) {
@@ -5815,31 +5811,26 @@
                 }
             }
 
-                // Save state first (assigns WBS and broadcasts changes)
-                saveState();
+                // Save to Firebase immediately (saveState now writes immediately)
+                await saveState('projects');
+                console.log('✅ Hub: Task saved to Firebase', {
+                    taskWbs: task.wbs,
+                    taskName: task.name,
+                    hasWbs: !!task.wbs
+                });
 
-                // 🔥 CRITICAL: Write to Firebase IMMEDIATELY for tasks (don't wait for debounce)
-                if (window.firebaseEnabled && window.db && window.firestore) {
-                    console.log('🔥 Hub: Writing new task to Firebase immediately');
-                    try {
-                        const docRef = window.firestore.doc(window.db, 'hubs', 'main');
-                        const stateToSync = {
-                            ...state,
-                            collapsedTasks: state.collapsedTasks ? Array.from(state.collapsedTasks) : [],
-                            currentProject: null,
-                            currentArea: null,
-                            lastModified: new Date().toISOString(),
-                            lastSyncedBy: state.currentUser?.name || 'Hub User'
-                        };
-
-                        await window.firestore.setDoc(docRef, stateToSync);
-                        console.log('✅ Hub: Task synced to Firebase immediately');
-                    } catch (error) {
-                        console.error('❌ Firebase write failed:', error);
-                    }
+                // Log activity AFTER WBS is assigned
+                if (isNewTask) {
+                    logActivity('TASK_CREATED', `Added task "${title}" (${task.wbs})`, {
+                        taskId: task.id,
+                        taskWbs: task.wbs,
+                        taskName: title,
+                        projectId: state.currentProject.id,
+                        projectName: state.currentProject.name,
+                        areaId: state.currentArea.id,
+                        areaName: state.currentArea.name
+                    });
                 }
-
-                broadcastStateChange('projects');
 
                 // Create Drive folder for new task
                 if (isNewTask && state.connected) {
@@ -5855,16 +5846,7 @@
                     if (state.currentArea.driveFolderId && task.wbs) {
                         console.log(`Creating task folder for WBS ${task.wbs}...`);
                         await createTaskFolder(task, state.currentArea, state.currentProject);
-
-                        // Update the activity with folder IDs
-                        if (task.driveFolderId || task.reportsFolderId) {
-                            const activity = state.activities.find(a => a.id === activityId);
-                            if (activity) {
-                                if (task.driveFolderId) activity.details.driveFolderId = task.driveFolderId;
-                                if (task.reportsFolderId) activity.details.reportsFolderId = task.reportsFolderId;
-                                console.log('✓ Updated activity with folder IDs');
-                            }
-                        }
+                        console.log('✓ Task Drive folder created:', task.driveFolderId);
                     } else {
                         console.warn('Cannot create task folder:', {
                             hasAreaFolder: !!state.currentArea.driveFolderId,

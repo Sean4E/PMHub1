@@ -21,6 +21,20 @@ class PMHubSync {
      * @param {string} section - Section being updated (for logging only)
      * @returns {Promise<boolean>} Success status
      */
+    /**
+     * Assign WBS numbers to tasks (must match Hub's assignWbsToTasks logic)
+     */
+    assignWbsToTasks(tasks, parentWbs = '') {
+        tasks.forEach((task, index) => {
+            const wbs = parentWbs ? `${parentWbs}.${index + 1}` : `${index + 1}`;
+            task.wbs = wbs;
+
+            if (task.children && task.children.length > 0) {
+                this.assignWbsToTasks(task.children, wbs);
+            }
+        });
+    }
+
     async saveState(state, section = 'general') {
         if (!window.firebaseEnabled || !window.db || !window.firestore) {
             console.log(`ℹ️ ${this.appName}: Firebase not available`);
@@ -29,6 +43,19 @@ class PMHubSync {
 
         try {
             console.log(`🔥 ${this.appName}: Writing to Firebase immediately (section: ${section})`);
+
+            // CRITICAL: Assign WBS to all tasks in all areas before saving
+            if (state.projects) {
+                state.projects.forEach(project => {
+                    if (project.areas) {
+                        project.areas.forEach(area => {
+                            if (area.tasks && area.tasks.length > 0) {
+                                this.assignWbsToTasks(area.tasks);
+                            }
+                        });
+                    }
+                });
+            }
 
             // Prepare clean state for Firebase - ALL shared data
             const stateToSync = {
