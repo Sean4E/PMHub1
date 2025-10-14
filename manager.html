@@ -4131,13 +4131,33 @@ End of Report
 
                         const oldProjects = JSON.stringify(hubState.projects);
 
-                        // ALWAYS update hubState with latest Firebase data
+                        // ALWAYS update hubState with latest Firebase data (ALL shared data types)
+                        // Core data
                         hubState.projects = data.projects || [];
+                        hubState.ourTeam = data.ourTeam || [];
+                        hubState.clientTeam = data.clientTeam || [];
+                        hubState.clients = data.clients || [];
+                        hubState.tools = data.tools || [];
+
+                        // Activity & Logging
                         hubState.activities = data.activities || [];
                         hubState.activityLog = data.activityLog || [];
-                        hubState.ourTeam = data.ourTeam || hubState.ourTeam || [];
-                        hubState.clientTeam = data.clientTeam || hubState.clientTeam || [];
-                        hubState.timeEntries = data.timeEntries || hubState.timeEntries || [];
+
+                        // Reports & Time Tracking
+                        hubState.reports = data.reports || [];
+                        hubState.timeEntries = data.timeEntries || [];
+
+                        // Notifications
+                        hubState.notifications = data.notifications || [];
+
+                        // Project Management
+                        hubState.usedProjectNumbers = data.usedProjectNumbers || [];
+
+                        // Configuration
+                        if (data.folderTemplate) hubState.folderTemplate = data.folderTemplate;
+                        if (data.settings) hubState.settings = data.settings;
+                        if (data.modules) hubState.modules = data.modules;
+                        if (data.calendarFilters) hubState.calendarFilters = data.calendarFilters;
 
                         const newProjects = JSON.stringify(hubState.projects);
                         const projectsChanged = oldProjects !== newProjects;
@@ -4351,7 +4371,10 @@ End of Report
                     PMHubRealtimeSync: window.PMHubRealtimeSync ? 'LOADED' : 'NOT LOADED'
                 });
 
-                if (currentUser && window.PMHubRealtimeSync) {
+                // NOTE: DISABLED - Now using direct unified Firebase listener (startManagerActivityFeedListener)
+                // The unified listener handles ALL updates (activities + projects + tasks) directly
+                if (false && currentUser && window.PMHubRealtimeSync) {
+                    // PMHubRealtimeSync DISABLED - using direct listener instead
                     window.pmRealtime = new PMHubRealtimeSync({
                         appName: 'Manager',
                         currentUser: currentUser,

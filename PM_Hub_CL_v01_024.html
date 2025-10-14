@@ -10229,15 +10229,35 @@
                         const oldProjectCount = state.projects?.length || 0;
                         const newProjectCount = data.projects?.length || 0;
 
-                        // ALWAYS update state with latest Firebase data
+                        // ALWAYS update state with latest Firebase data (ALL shared data types)
                         const oldProjects = JSON.stringify(state.projects);
 
+                        // Core data
                         state.projects = data.projects || [];
+                        state.ourTeam = data.ourTeam || [];
+                        state.clientTeam = data.clientTeam || [];
+                        state.clients = data.clients || [];
+                        state.tools = data.tools || [];
+
+                        // Activity & Logging
                         state.activities = data.activities || [];
                         state.activityLog = data.activityLog || [];
-                        state.ourTeam = data.ourTeam || state.ourTeam || [];
-                        state.clientTeam = data.clientTeam || state.clientTeam || [];
-                        state.timeEntries = data.timeEntries || state.timeEntries || [];
+
+                        // Reports & Time Tracking
+                        state.reports = data.reports || [];
+                        state.timeEntries = data.timeEntries || [];
+
+                        // Notifications
+                        state.notifications = data.notifications || [];
+
+                        // Project Management
+                        state.usedProjectNumbers = data.usedProjectNumbers || [];
+
+                        // Configuration
+                        if (data.folderTemplate) state.folderTemplate = data.folderTemplate;
+                        if (data.settings) state.settings = data.settings;
+                        if (data.modules) state.modules = data.modules;
+                        if (data.calendarFilters) state.calendarFilters = data.calendarFilters;
 
                         const newProjects = JSON.stringify(state.projects);
                         const projectsChanged = oldProjects !== newProjects;
@@ -10466,10 +10486,14 @@
     <script src="pm-hub-realtime.js"></script>
     <script>
         // Initialize real-time sync after page load
+        // NOTE: DISABLED - Now using direct unified Firebase listener (startActivityFeedListener)
+        // The unified listener handles ALL updates (activities + projects + tasks) directly
+        // This is simpler, faster, and matches the chat pattern
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const currentUserStr = localStorage.getItem('pm_hub_current_user');
-                if (currentUserStr && window.PMHubRealtimeSync) {
+                if (false && currentUserStr && window.PMHubRealtimeSync) {
+                    // PMHubRealtimeSync DISABLED - using direct listener instead
                     const currentUser = JSON.parse(currentUserStr);
                     window.pmRealtime = new PMHubRealtimeSync({
                         appName: 'Admin',
