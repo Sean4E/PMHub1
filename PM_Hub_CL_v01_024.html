@@ -2860,6 +2860,7 @@
         let state = {
             connected: false,
             isOnline: navigator.onLine,
+            currentUser: null,
             currentProject: null,
             currentArea: null,
             collapsedTasks: new Set(),
@@ -3085,6 +3086,9 @@
             if (userStr) {
                 const currentUser = JSON.parse(userStr);
 
+                // Set current user in state for chat and other features
+                state.currentUser = currentUser;
+
                 // Redirect managers to their app
                 if (currentUser.accessLevel === 'Manager') {
                     window.location.href = 'manager.html';
@@ -3096,6 +3100,9 @@
                     window.location.href = 'worker.html';
                     return;
                 }
+            } else {
+                // Default admin user if no user in localStorage
+                state.currentUser = { id: 'admin', name: 'Administrator', accessLevel: 'Admin' };
             }
 
             await loadState();
@@ -4500,7 +4507,6 @@
                             <span>${task.name}</span>
                         </div>
                         <div class="task-actions">
-                            <button class="btn btn-sm btn-ghost" onclick="openTaskChat('${wbs}', event)" title="Chat">💬</button>
                             <button class="btn btn-sm btn-ghost" onclick="editTask('${wbs}')">✎</button>
                             <button class="btn btn-sm btn-ghost" onclick="addSubTask('${wbs}')">+ Sub</button>
                             <button class="btn btn-sm btn-danger" onclick="removeTask('${wbs}')">×</button>
@@ -4635,7 +4641,6 @@
                         ${task.assignee ? `<div style="font-size: 12px; color: var(--text-secondary);">Assigned to: ${task.assignee}</div>` : ''}
                         ${task.priority ? `<div style="font-size: 12px; color: var(--text-tertiary);">Priority: ${task.priority}</div>` : ''}
                         <div class="task-card-actions">
-                            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openTaskChat('${task.wbs}', event)" title="Chat">💬</button>
                             ${showLeftArrow ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); moveTaskStatus('${task.wbs}', '${prevStatus}')">←</button>` : '<span style="width: 36px; display: inline-block;"></span>'}
                             ${showRightArrow ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); moveTaskStatus('${task.wbs}', '${nextStatus}')">→</button>` : '<span style="width: 36px; display: inline-block;"></span>'}
                         </div>
@@ -5171,7 +5176,7 @@
             renderChatMessages();
 
             // Save state and sync
-            await saveHubState();
+            await saveStateToFirebase();
 
             // Log activity
             logActivity('Chat Message', `${currentChatUser.name} commented on "${task.name}"`);
@@ -5189,7 +5194,7 @@
                 }
             });
 
-            saveHubState();
+            saveStateToFirebase();
         }
 
         function handleChatKeydown(event) {
