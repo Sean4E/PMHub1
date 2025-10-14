@@ -1595,7 +1595,7 @@
         // ===== GOOGLE DRIVE & APIS CONFIGURATION =====
         const CLIENT_ID = '904576712649-mcrh6cl8ei84gktkfg2f36eqc8454k1q.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyBoEAEz1NnCJDQ221u4XxXZIBaQrN-nlAc';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar';
 
         let gapiInited = false;
         let gisInited = false;
@@ -1892,15 +1892,19 @@
             }
         }
 
-        // ===== GOOGLE DRIVE INTEGRATION =====
+        // ===== GOOGLE DRIVE & CALENDAR INTEGRATION =====
         function initGoogleAPIs() {
             if (typeof gapi !== 'undefined') {
                 gapi.load('client', async () => {
                     try {
                         await gapi.client.init({
-                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+                            discoveryDocs: [
+                                'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+                                'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
+                            ]
                         });
                         gapiInited = true;
+                        console.log('✅ Manager: Google Drive & Calendar APIs initialized');
 
                         const loginToken = localStorage.getItem('drive_token_from_login');
                         if (loginToken) {
@@ -3043,12 +3047,23 @@ End of Report
                     priority: priority,
                     taskName: name
                 });
-                await saveHubState('projects');
                 showToast('Task added!', 'success');
             }
 
+            // ALWAYS save to localStorage as backup (even when Firebase is enabled)
+            await saveHubState('projects');
+
+            // Log activity locally
+            logActivity('TASK_CREATED', `Created task: ${name}`, {
+                assignee: assignee,
+                priority: priority,
+                taskName: name
+            });
+
             closeModal('add-task-modal');
             showManageTasks();
+
+            console.log('✅ Manager: Task added to local state and UI refreshed');
         }
 
         async function deleteTask(areaId, taskWbs) {

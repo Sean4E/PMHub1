@@ -4839,11 +4839,31 @@
 
         function selectArea(areaId) {
             console.log('🎯 Hub: Selecting area:', areaId);
+
+            // Safety check: ensure currentProject exists
+            if (!state.currentProject) {
+                console.error('❌ Cannot select area: No project selected');
+                showAlert('Please select a project first', 'error');
+                return;
+            }
+
+            if (!state.currentProject.areas) {
+                console.error('❌ Cannot select area: Project has no areas');
+                showAlert('Project has no areas', 'error');
+                return;
+            }
+
             state.currentArea = state.currentProject.areas.find(a => a.id === areaId);
+
+            if (!state.currentArea) {
+                console.error('❌ Area not found:', areaId);
+                showAlert('Area not found', 'error');
+                return;
+            }
 
             // Store area selection in LOCAL storage only (UI state, not shared data)
             localStorage.setItem('pm_hub_current_area_id', areaId);
-            console.log('✅ Hub: Area selection stored locally:', areaId);
+            console.log('✅ Hub: Area selection stored locally:', areaId, state.currentArea.name);
 
             // DO NOT call saveState() here - selection is UI state, not shared data
             // saveState() writes to Firebase and triggers listeners, causing selection loss
@@ -10332,8 +10352,16 @@
 
                             console.log('🔍 Hub: Restoring selection - Project ID:', currentProjectId, 'Area ID:', currentAreaId);
 
-                            // Update local state
-                            state = newState;
+                            // MERGE strategy: Update data arrays but preserve UI state
+                            // This prevents the jarring "state replacement" that loses selections
+                            state.projects = newState.projects || [];
+                            state.ourTeam = newState.ourTeam || state.ourTeam || [];
+                            state.clientTeam = newState.clientTeam || state.clientTeam || [];
+                            state.clients = newState.clients || state.clients || [];
+                            state.tools = newState.tools || state.tools || [];
+                            state.activities = newState.activities || state.activities || [];
+                            state.activityLog = newState.activityLog || state.activityLog || [];
+                            state.usedProjectNumbers = newState.usedProjectNumbers || state.usedProjectNumbers || [];
 
                             // Restore current selections (maintaining references to actual objects)
                             if (currentProjectId) {
