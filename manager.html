@@ -4291,10 +4291,22 @@ End of Report
                                 loadManagementProject();
                                 console.log('🔄 Manager (Manage): Project view refreshed');
 
+                                // 🔥 CRITICAL: Refresh current management view to show task status changes
+                                if (currentManagementView === 'tasks') {
+                                    showManageTasks();
+                                    console.log('📋 Manager: Tasks view refreshed (status updated)');
+                                }
+
                                 // If activity log is open, refresh it
                                 if (currentManagementView === 'activity') {
                                     renderManagerActivityFeed();
                                     console.log('📊 Manager: Activity log refreshed');
+                                }
+
+                                // If areas view is open, refresh it
+                                if (currentManagementView === 'areas') {
+                                    showManageAreas();
+                                    console.log('📍 Manager: Areas view refreshed');
                                 }
 
                                 // If team view is open, refresh team display

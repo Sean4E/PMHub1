@@ -10409,6 +10409,15 @@
                                 if (projectDetails && projectDetails.style.display !== 'none') {
                                     renderProjectDetails();
                                 }
+
+                                // 🔥 CRITICAL: If viewing area content (task board), refresh it to show status changes
+                                if (state.currentArea) {
+                                    const areaContent = document.getElementById('areaContent');
+                                    if (areaContent) {
+                                        areaContent.innerHTML = renderAreaContent();
+                                        console.log('🔄 Hub: Area content refreshed (task board updated)');
+                                    }
+                                }
                             }
 
                             // 3. Team members (affects task assignees, chat participants, etc.)
