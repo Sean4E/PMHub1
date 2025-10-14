@@ -1951,13 +1951,27 @@
                     <!-- System Management -->
                     <div style="margin-top: 40px; padding: 20px; background: var(--glass-bg); border-radius: var(--border-radius); border: 1px solid var(--glass-border);">
                         <h4 style="margin-bottom: 16px;">🔧 System Management</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px;">
-                            <button class="btn btn-primary" onclick="connectServices()" id="connectBtnAdmin" style="width: 100%;">
-                                🔗 Connect Google
-                            </button>
-                            <button class="btn" onclick="syncAllProjectFolders()" id="syncDriveBtnAdmin" style="display: none; background: var(--accent-warning); width: 100%;">
+
+                        <!-- Google Drive Status -->
+                        <div style="padding: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div id="drive-status-indicator-admin" style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-danger);"></div>
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--text-primary);">Google Drive</div>
+                                        <div id="drive-status-text-admin" style="font-size: 12px; color: var(--text-secondary);">Not connected</div>
+                                    </div>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-tertiary);">
+                                    Connect in header (top right) →
+                                </div>
+                            </div>
+                            <button class="btn" onclick="syncAllProjectFolders()" id="syncDriveBtnAdmin" style="width: 100%; background: var(--accent-primary);">
                                 🔄 Sync Drive Folders
                             </button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px;">
                             <button class="btn" onclick="showBackupMenu()" style="background: var(--accent-success); width: 100%;">
                                 💾 Backup & Restore
                             </button>
@@ -3638,6 +3652,9 @@
                             // Get and display Google account info
                             updateDriveAccountInfo().catch(err => console.error('Failed to get account info:', err));
 
+                            // Update admin Drive status
+                            updateAdminDriveStatus(true);
+
                             // Schedule token refresh (assume 1 hour expiry if not specified)
                             scheduleTokenRefresh(3600);
 
@@ -3700,14 +3717,8 @@
                         document.getElementById('connectBtn').textContent = 'Disconnect';
                         document.getElementById('connectBtn').onclick = disconnect;
 
-                        // Update admin buttons
-                        if (document.getElementById('connectBtnAdmin')) {
-                            document.getElementById('connectBtnAdmin').textContent = '✓ Disconnect';
-                            document.getElementById('connectBtnAdmin').onclick = disconnect;
-                        }
-                        if (document.getElementById('syncDriveBtnAdmin')) {
-                            document.getElementById('syncDriveBtnAdmin').style.display = 'block';
-                        }
+                        // Update admin Drive status
+                        updateAdminDriveStatus(true);
 
                         showAlert('Connected to Google services!', 'success');
 
@@ -3792,14 +3803,8 @@
                 const accountInfo = document.getElementById('driveAccountInfo');
                 if (accountInfo) accountInfo.style.display = 'none';
 
-                // Update admin buttons
-                if (document.getElementById('connectBtnAdmin')) {
-                    document.getElementById('connectBtnAdmin').textContent = '🔗 Connect Google';
-                    document.getElementById('connectBtnAdmin').onclick = connectServices;
-                }
-                if (document.getElementById('syncDriveBtnAdmin')) {
-                    document.getElementById('syncDriveBtnAdmin').style.display = 'none';
-                }
+                // Update admin Drive status
+                updateAdminDriveStatus(false);
 
                 // Clear stored account info
                 localStorage.removeItem('drive_account_email');
@@ -3812,9 +3817,51 @@
             }
         }
 
+        function updateAdminDriveStatus(connected) {
+            const indicator = document.getElementById('drive-status-indicator-admin');
+            const statusText = document.getElementById('drive-status-text-admin');
+            const syncBtn = document.getElementById('syncDriveBtnAdmin');
+
+            if (connected) {
+                if (indicator) {
+                    indicator.style.background = 'var(--accent-success)';
+                }
+                if (statusText) {
+                    const email = state.driveAccount?.email || 'Connected';
+                    statusText.textContent = `Connected: ${email}`;
+                    statusText.style.color = 'var(--accent-success)';
+                }
+                if (syncBtn) {
+                    syncBtn.disabled = false;
+                    syncBtn.style.opacity = '1';
+                    syncBtn.style.cursor = 'pointer';
+                }
+            } else {
+                if (indicator) {
+                    indicator.style.background = 'var(--accent-danger)';
+                }
+                if (statusText) {
+                    statusText.textContent = 'Not connected - Connect in header (top right)';
+                    statusText.style.color = 'var(--text-secondary)';
+                }
+                if (syncBtn) {
+                    syncBtn.disabled = true;
+                    syncBtn.style.opacity = '0.5';
+                    syncBtn.style.cursor = 'not-allowed';
+                }
+            }
+        }
+
         async function syncAllProjectFolders() {
-            if (!state.connected || !state.isOnline) {
-                showAlert('⚠️ Connect to Drive first', 'warning');
+            // Check if actually connected by verifying token
+            const token = gapi.client.getToken();
+            if (!token || !token.access_token) {
+                showAlert('⚠️ Please connect to Google Drive first (top right button)', 'warning');
+                return;
+            }
+
+            if (!state.isOnline) {
+                showAlert('⚠️ No internet connection', 'warning');
                 return;
             }
 
